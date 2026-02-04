@@ -81,15 +81,9 @@ export default function ApartmentList() {
       ) : apartments.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-600 mb-4">Brak mieszkań w bazie.</p>
-          <button
-            type="button"
-            onClick={openAdd}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700"
-          >
-            <Plus className="w-5 h-5" />
-            Dodaj pierwsze mieszkanie
-          </button>
+          <p className="text-slate-600">
+            Brak mieszkań w bazie. Użyj przycisku „Dodaj mieszkanie” u góry, aby dodać pierwsze.
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">

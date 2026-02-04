@@ -8,3 +8,7 @@ body {
   font-family: 'DM Sans', system-ui, sans-serif;
   @apply bg-slate-50 text-slate-800 antialiased;
 }
+
+button {
+  cursor: pointer;
+}

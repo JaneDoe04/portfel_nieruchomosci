@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import api from '../../api/axios';
 
 const STATUS_OPTIONS = [
   { value: 'WOLNE', label: 'Wolne' },
@@ -16,10 +17,13 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     area: '',
     status: 'WOLNE',
     contractEndDate: '',
-    photos: '',
+    images: [],
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (apartment) {
@@ -33,7 +37,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         contractEndDate: apartment.contractEndDate
           ? apartment.contractEndDate.slice(0, 10)
           : '',
-        photos: Array.isArray(apartment.photos) ? apartment.photos.join('\n') : '',
+        images: Array.isArray(apartment.photos) ? apartment.photos : [],
       });
     }
   }, [apartment]);
@@ -42,6 +46,77 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setError('');
+  };
+
+  const handleImageChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setError('');
+    setUploading(true);
+
+    try {
+      const results = await Promise.allSettled(
+        files.map(async (file) => {
+          const localUrl = URL.createObjectURL(file);
+
+          try {
+            const formData = new FormData();
+            formData.append('image', file);
+            const { data } = await api.post('/uploads', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            if (data?.url) {
+              // Udało się wrzucić na serwer – używamy URL z backendu
+              return data.url;
+            }
+
+            // Brak URL z backendu – używamy lokalnego podglądu
+            return localUrl;
+          } catch (err) {
+            // Błąd uploadu jednego konkretnego pliku – logujemy i używamy lokalnego URL
+            console.error(err);
+            return localUrl;
+          }
+        })
+      );
+
+      const urlsToAdd = results
+        .map((r) => (r.status === 'fulfilled' ? r.value : null))
+        .filter(Boolean);
+
+      if (!urlsToAdd.length) {
+        setError('Nie udało się wysłać zdjęć na serwer, ale podgląd lokalny nadal działa.');
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...urlsToAdd],
+      }));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const moveImage = (index, direction) => {
+    setForm((prev) => {
+      const images = [...prev.images];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= images.length) return prev;
+      const temp = images[index];
+      images[index] = images[newIndex];
+      images[newIndex] = temp;
+      return { ...prev, images };
+    });
+  };
+
+  const removeImage = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -67,12 +142,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         area,
         status: form.status,
         contractEndDate: form.contractEndDate || null,
-        photos: form.photos
-          ? form.photos
-              .split('\n')
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [],
+        photos: form.images,
       };
       await onSave(payload);
       onClose();
@@ -188,15 +258,88 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Zdjęcia (URL, jeden w linii)</label>
-              <textarea
-                name="photos"
-                value={form.photos}
-                onChange={handleChange}
-                rows={2}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
-                placeholder="https://example.com/photo1.jpg"
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-slate-700">Zdjęcia</label>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-medium hover:bg-primary-100 border border-primary-100"
+                >
+                  Wybierz zdjęcia
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageChange}
+                className="hidden"
               />
+              {uploading && (
+                <p className="mt-1 text-xs text-slate-500">Wysyłanie zdjęć...</p>
+              )}
+              <div className="mt-2 space-y-2">
+                {form.images.length > 0 ? (
+                  <>
+                    <div className="space-y-2 pr-1 border border-slate-200 rounded-md bg-slate-50/60 p-1">
+                      {form.images.map((url, index) => (
+                        <div
+                          key={url + index}
+                          className="flex items-center gap-2 rounded bg-white p-2 shadow-sm"
+                        >
+                          <span className="text-xs font-semibold text-slate-600 w-5">
+                            #{index + 1}
+                          </span>
+                          <img
+                            src={url}
+                            alt={`Zdjęcie ${index + 1}`}
+                            className="w-20 h-16 object-cover rounded cursor-pointer"
+                            onClick={() => setPreviewUrl(url)}
+                          />
+                          {index === 0 && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-100">
+                              Główne
+                            </span>
+                          )}
+                          <div className="ml-auto flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => moveImage(index, -1)}
+                              disabled={index === 0}
+                              className="px-2 py-1 rounded border border-slate-200 text-[11px] disabled:opacity-40"
+                              title="W górę"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveImage(index, 1)}
+                              disabled={index === form.images.length - 1}
+                              className="px-2 py-1 rounded border border-slate-200 text-[11px] disabled:opacity-40"
+                              title="W dół"
+                            >
+                              ↓
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="px-2 py-1 rounded border border-red-200 text-red-600 text-[11px]"
+                              title="Usuń"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">
+                    Brak zdjęć – wybierz pliki powyżej, a podgląd i kolejność zobaczysz tutaj.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
@@ -217,6 +360,19 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
           </div>
         </form>
       </div>
+
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
+          onClick={() => setPreviewUrl('')}
+        >
+          <img
+            src={previewUrl}
+            alt="Podgląd zdjęcia"
+            className="max-w-[90vw] max-h-[90vh] rounded shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
