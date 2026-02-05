@@ -5,11 +5,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
-    },
+    // Proxy nieużywany – front lokalnie, API na Renderze (VITE_API_URL w .env)
   },
 });
