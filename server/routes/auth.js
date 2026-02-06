@@ -42,7 +42,9 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Podaj login (lub e-mail) i hasło.' });
     }
     const isEmail = loginOrEmail.includes('@');
-    const query = isEmail ? { email: loginOrEmail.toLowerCase() } : { login: loginOrEmail };
+    const query = isEmail
+      ? { email: loginOrEmail.toLowerCase() }
+      : { $or: [{ login: loginOrEmail }, { email: loginOrEmail }] };
     console.log('[auth] Login attempt', { by: isEmail ? 'email' : 'login', value: loginOrEmail });
     const user = await User.findOne(query).select('+password');
     if (!user) {
