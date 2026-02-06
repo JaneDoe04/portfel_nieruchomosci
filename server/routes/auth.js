@@ -42,12 +42,19 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Podaj login (lub e-mail) i hasło.' });
     }
     const isEmail = loginOrEmail.includes('@');
-    const user = await User.findOne(
-      isEmail ? { email: loginOrEmail.toLowerCase() } : { login: loginOrEmail }
-    ).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
+    const query = isEmail ? { email: loginOrEmail.toLowerCase() } : { login: loginOrEmail };
+    console.log('[auth] Login attempt', { by: isEmail ? 'email' : 'login', value: loginOrEmail });
+    const user = await User.findOne(query).select('+password');
+    if (!user) {
+      console.log('[auth] User not found for', isEmail ? 'email' : 'login', loginOrEmail);
       return res.status(401).json({ message: 'Nieprawidłowy login lub hasło.' });
     }
+    const passwordOk = await user.comparePassword(password);
+    if (!passwordOk) {
+      console.log('[auth] Password mismatch for user', user._id.toString());
+      return res.status(401).json({ message: 'Nieprawidłowy login lub hasło.' });
+    }
+    console.log('[auth] Login OK', { userId: user._id.toString() });
     const token = generateToken(user._id);
     res.json({
       _id: user._id,
