@@ -67,4 +67,28 @@ router.get('/me', protect, (req, res) => {
   res.json(req.user);
 });
 
+// POST /api/auth/seed – jednorazowe dodanie użytkownika (wymaga SEED_SECRET w env)
+router.post('/seed', async (req, res) => {
+  try {
+    const secret = req.body?.secret || req.query?.secret;
+    if (secret !== process.env.SEED_SECRET) {
+      return res.status(403).json({ message: 'Brak uprawnień.' });
+    }
+    const existing = await User.findOne({ login: 'RadoslawDziubek123' });
+    if (existing) {
+      return res.json({ message: 'Użytkownik RadoslawDziubek123 już istnieje.', ok: true });
+    }
+    await User.create({
+      email: 'radoslawdziubek123@portfel.local',
+      login: 'RadoslawDziubek123',
+      password: 'Landlord123',
+      name: 'Radosław',
+      role: 'manager',
+    });
+    res.status(201).json({ message: 'Utworzono użytkownika: RadoslawDziubek123 / Landlord123', ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Błąd seed.' });
+  }
+});
+
 export default router;
