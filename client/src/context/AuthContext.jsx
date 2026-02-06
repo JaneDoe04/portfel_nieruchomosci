@@ -21,11 +21,14 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+  const login = async (loginOrEmail, password) => {
+    const body = loginOrEmail.includes('@')
+      ? { email: loginOrEmail, password }
+      : { login: loginOrEmail, password };
+    const { data } = await api.post('/auth/login', body);
     localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify({ _id: data._id, email: data.email, name: data.name, role: data.role }));
-    setUser({ _id: data._id, email: data.email, name: data.name, role: data.role });
+    localStorage.setItem('user', JSON.stringify({ _id: data._id, email: data.email, name: data.name, login: data.login, role: data.role }));
+    setUser({ _id: data._id, email: data.email, name: data.name, login: data.login, role: data.role });
     return data;
   };
 

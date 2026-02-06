@@ -33,22 +33,27 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
+// POST /api/auth/login – akceptuje login lub email
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Podaj email i hasło.' });
+    const { email, login, password } = req.body;
+    const loginOrEmail = login || email;
+    if (!loginOrEmail || !password) {
+      return res.status(400).json({ message: 'Podaj login (lub e-mail) i hasło.' });
     }
-    const user = await User.findOne({ email }).select('+password');
+    const isEmail = loginOrEmail.includes('@');
+    const user = await User.findOne(
+      isEmail ? { email: loginOrEmail.toLowerCase() } : { login: loginOrEmail }
+    ).select('+password');
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Nieprawidłowy email lub hasło.' });
+      return res.status(401).json({ message: 'Nieprawidłowy login lub hasło.' });
     }
     const token = generateToken(user._id);
     res.json({
       _id: user._id,
       email: user.email,
       name: user.name,
+      login: user.login,
       role: user.role,
       token,
     });

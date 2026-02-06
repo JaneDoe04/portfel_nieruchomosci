@@ -1,0 +1,11 @@
+---
+description: Po dużych zmianach na backendzie wrzucaj zmiany na Git, żeby Render mógł zrobić deploy
+alwaysApply: true
+---
+
+# Deploy backendu na Render
+
+- **Backend** jest hostowany na **Renderze** i deployuje się z repozytorium Git (branch `main`).
+- Po **dużych lub istotnych zmianach w backendzie** (folder `server/`): od razu zrób commit i push na GitHub, żeby Render mógł zrobić automatyczny deploy.
+- Duże zmiany to m.in.: nowe/zmienione modele, routy, middleware, skrypty, zależności w `server/package.json`, zmiany w `server/index.js`.
+- Kroki: `git add .` → `git commit -m "opis zmian"` → `git push origin main` (w razie konfliktów najpierw `git pull --rebase origin main`).
