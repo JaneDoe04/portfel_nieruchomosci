@@ -4,11 +4,11 @@ import { Building2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [loginOrEmail, setLoginOrEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login: doLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
@@ -18,7 +18,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(loginOrEmail, password);
+      await doLogin(login, password);
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Logowanie nie powiodło się.');
@@ -43,18 +43,18 @@ export default function Login() {
               <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>
             )}
             <div>
-              <label htmlFor="loginOrEmail" className="block text-sm font-medium text-slate-700 mb-1">
-                Login lub adres e-mail
+              <label htmlFor="login" className="block text-sm font-medium text-slate-700 mb-1">
+                Login
               </label>
               <input
-                id="loginOrEmail"
+                id="login"
                 type="text"
-                value={loginOrEmail}
-                onChange={(e) => setLoginOrEmail(e.target.value)}
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 required
                 autoComplete="username"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="np. RadoslawDziubek123 lub twoj@email.pl"
+                placeholder="Login"
               />
             </div>
             <div>

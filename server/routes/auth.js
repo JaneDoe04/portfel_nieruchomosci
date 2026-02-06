@@ -9,47 +9,17 @@ const router = express.Router();
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-// POST /api/auth/register
-router.post('/register', async (req, res) => {
-  try {
-    const { email, password, name, login } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Podaj email i hasło.' });
-    }
-    const exists = await User.findOne({ $or: [{ email }, ...(login ? [{ login }] : [])] });
-    if (exists) {
-      return res.status(400).json({ message: 'Ten adres email lub login jest już używany.' });
-    }
-    const user = await User.create({ email, password, name: name || email, ...(login && { login }) });
-    const token = generateToken(user._id);
-    res.status(201).json({
-      _id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      token,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message || 'Błąd rejestracji.' });
-  }
-});
-
-// POST /api/auth/login – akceptuje login lub email
+// POST /api/auth/login – tylko login + hasło (bez rejestracji w aplikacji)
 router.post('/login', async (req, res) => {
   try {
-    const { email, login, password } = req.body;
-    const loginOrEmail = login || email;
-    if (!loginOrEmail || !password) {
-      return res.status(400).json({ message: 'Podaj login (lub e-mail) i hasło.' });
+    const { login, password } = req.body;
+    if (!login || !password) {
+      return res.status(400).json({ message: 'Podaj login i hasło.' });
     }
-    const isEmail = loginOrEmail.includes('@');
-    const query = isEmail
-      ? { email: loginOrEmail.toLowerCase() }
-      : { login: loginOrEmail };
-    console.log('[auth] Login attempt', { by: isEmail ? 'email' : 'login', value: loginOrEmail });
-    const user = await User.findOne(query).select('+password');
+    console.log('[auth] Login attempt', { login });
+    const user = await User.findOne({ login }).select('+password');
     if (!user) {
-      console.log('[auth] User not found for', isEmail ? 'email' : 'login', loginOrEmail);
+      console.log('[auth] User not found for login', login);
       return res.status(401).json({ message: 'Nieprawidłowy login lub hasło.' });
     }
     const passwordOk = await user.comparePassword(password);
