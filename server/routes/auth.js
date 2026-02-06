@@ -11,15 +11,15 @@ const generateToken = (id) =>
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, login } = req.body;
     if (!email || !password) {
       return res.status(400).json({ message: 'Podaj email i hasło.' });
     }
-    const exists = await User.findOne({ email });
+    const exists = await User.findOne({ $or: [{ email }, ...(login ? [{ login }] : [])] });
     if (exists) {
-      return res.status(400).json({ message: 'Ten adres email jest już używany.' });
+      return res.status(400).json({ message: 'Ten adres email lub login jest już używany.' });
     }
-    const user = await User.create({ email, password, name: name || email });
+    const user = await User.create({ email, password, name: name || email, ...(login && { login }) });
     const token = generateToken(user._id);
     res.status(201).json({
       _id: user._id,
