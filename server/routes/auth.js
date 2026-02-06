@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
 
@@ -44,7 +45,7 @@ router.post('/login', async (req, res) => {
     const isEmail = loginOrEmail.includes('@');
     const query = isEmail
       ? { email: loginOrEmail.toLowerCase() }
-      : { $or: [{ login: loginOrEmail }, { email: loginOrEmail }] };
+      : { login: loginOrEmail };
     console.log('[auth] Login attempt', { by: isEmail ? 'email' : 'login', value: loginOrEmail });
     const user = await User.findOne(query).select('+password');
     if (!user) {
@@ -87,6 +88,32 @@ router.patch('/me', protect, async (req, res) => {
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message || 'Błąd aktualizacji.' });
+  }
+});
+
+// POST /api/auth/fix-login – ustawia pole login i email (wymaga SEED_SECRET)
+router.post('/fix-login', async (req, res) => {
+  try {
+    const secret = req.body?.secret || req.query?.secret;
+    if (secret !== process.env.SEED_SECRET) {
+      return res.status(403).json({ message: 'Brak uprawnień.' });
+    }
+    const user = await User.findOne({
+      $or: [
+        { email: 'radoslawdziubek123' },
+        { email: 'RadoslawDziubek123' },
+        { _id: new mongoose.Types.ObjectId('698531e1d5b5ad361b6f5be1') },
+      ],
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'Nie znaleziono użytkownika.' });
+    }
+    user.login = 'RadoslawDziubek123';
+    user.email = 'radoslawdziubek123@portfel.local';
+    await user.save();
+    res.json({ message: 'OK: ustawiono login i email.', ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Błąd.' });
   }
 });
 
