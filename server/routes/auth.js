@@ -67,6 +67,20 @@ router.get('/me', protect, (req, res) => {
   res.json(req.user);
 });
 
+// PATCH /api/auth/me (protected) – aktualizacja name, login
+router.patch('/me', protect, async (req, res) => {
+  try {
+    const { name, login } = req.body;
+    const upd = {};
+    if (name !== undefined) upd.name = name;
+    if (login !== undefined) upd.login = login;
+    const user = await User.findByIdAndUpdate(req.user._id, upd, { new: true }).select('-password');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Błąd aktualizacji.' });
+  }
+});
+
 // POST /api/auth/seed – jednorazowe dodanie użytkownika (wymaga SEED_SECRET w env)
 router.post('/seed', async (req, res) => {
   try {
