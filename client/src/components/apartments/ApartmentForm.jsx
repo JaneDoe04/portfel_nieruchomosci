@@ -154,8 +154,14 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-800">
             {apartment ? 'Edytuj mieszkanie' : 'Dodaj mieszkanie'}
@@ -370,6 +376,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
             src={previewUrl}
             alt="Podgląd zdjęcia"
             className="max-w-[90vw] max-h-[90vh] rounded shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}

@@ -1,10 +1,7 @@
 import express from 'express';
 import Apartment from '../models/Apartment.js';
-import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
-
-router.use(protect);
 
 // GET /api/apartments
 router.get('/', async (req, res) => {
@@ -36,7 +33,8 @@ router.post('/', async (req, res) => {
   try {
     const apartment = await Apartment.create({
       ...req.body,
-      createdBy: req.user._id,
+      // W trybie bez logowania pole createdBy zostawiamy puste
+      createdBy: null,
     });
     res.status(201).json(apartment);
   } catch (err) {
