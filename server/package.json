@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "check-leases": "node scripts/checkExpiringLeases.js"
+"check-leases": "node scripts/checkExpiringLeases.js",
+    "seed-user": "node scripts/seedUser.js",
+    "fix-user-login": "node scripts/fixUserLogin.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
