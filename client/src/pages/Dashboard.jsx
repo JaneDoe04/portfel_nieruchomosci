@@ -118,8 +118,7 @@ export default function Dashboard() {
             {expiringSoon.map((apt) => (
               <li
                 key={apt._id}
-                className="flex items-center justify-between text-sm cursor-pointer hover:text-amber-900"
-                onClick={() => setSelected(apt)}
+                className="flex items-center justify-between text-sm"
               >
                 <span className="text-slate-700">
                   {apt.title} – {apt.address}
@@ -143,8 +142,7 @@ export default function Dashboard() {
             {expired.map((apt) => (
               <li
                 key={apt._id}
-                className="flex items-center justify-between text-sm cursor-pointer hover:text-red-900"
-                onClick={() => setSelected(apt)}
+                className="flex items-center justify-between text-sm"
               >
                 <span className="text-slate-700">
                   {apt.title} – {apt.address}
