@@ -6,8 +6,10 @@ const router = express.Router();
 // GET /api/apartments
 router.get('/', async (req, res) => {
   try {
+    // Sortujemy po dacie utworzenia rosnąco, żeby kolejność mieszkań była stabilna
+    // i nie zmieniała się przy każdej edycji (ułatwia ogarnianie listy).
     const apartments = await Apartment.find()
-      .sort({ updatedAt: -1 })
+      .sort({ createdAt: 1 })
       .lean();
     res.json(apartments);
   } catch (err) {

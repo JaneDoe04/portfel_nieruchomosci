@@ -17,7 +17,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 min-h-screen bg-navy-900 text-white flex flex-col shrink-0">
+    <aside className="w-64 h-screen bg-navy-900 text-white flex flex-col shrink-0">
       <div className="p-6 border-b border-navy-700">
         <h1 className="text-lg font-semibold text-white">Portfel Nieruchomości</h1>
         <p className="text-xs text-navy-300 mt-0.5">Zarządzanie wynajmem</p>

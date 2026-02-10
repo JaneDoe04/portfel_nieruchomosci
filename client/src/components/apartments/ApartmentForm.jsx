@@ -15,7 +15,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     price: '',
     description: '',
     area: '',
-    status: 'WOLNE',
+    status: 'WOLNE', // status i data końca umowy będziemy edytować gdzie indziej
     contractEndDate: '',
     images: [],
   });
@@ -68,8 +68,13 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
             });
 
             if (data?.url) {
-              // Udało się wrzucić na serwer – używamy URL z backendu
-              return data.url;
+              // Udało się wrzucić na serwer – budujemy pełny URL do backendu,
+              // żeby podgląd działał także gdy frontend jest na innym porcie/domenie
+              const base = import.meta.env.VITE_API_URL || '';
+              if (data.url.startsWith('http')) {
+                return data.url;
+              }
+              return `${base}${data.url}`;
             }
 
             // Brak URL z backendu – używamy lokalnego podglądu
@@ -140,8 +145,8 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         price,
         description: form.description.trim(),
         area,
-        status: form.status,
-        contractEndDate: form.contractEndDate || null,
+        // status i contractEndDate celowo NIE wysyłamy z tego formularza –
+        // będą zarządzane z panelu głównego
         photos: form.images,
       };
       await onSave(payload);
@@ -226,31 +231,6 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-              <select
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Data końca umowy</label>
-              <input
-                type="date"
-                name="contractEndDate"
-                value={form.contractEndDate}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Opis</label>
@@ -370,7 +350,11 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
       {previewUrl && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
-          onClick={() => setPreviewUrl('')}
+          onClick={(e) => {
+            // Zatrzymujemy propagację, żeby kliknięcie w podgląd NIE zamykało całego modala mieszkania
+            e.stopPropagation();
+            setPreviewUrl('');
+          }}
         >
           <img
             src={previewUrl}
