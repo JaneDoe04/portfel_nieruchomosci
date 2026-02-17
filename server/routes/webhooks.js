@@ -100,13 +100,33 @@ router.post('/otodom', express.json(), (req, res) => {
           // object_id to prawdziwe ID ogłoszenia na Otodom (używamy go do operacji API)
           // webhookData może zawierać URL ogłoszenia, ale do operacji API potrzebujemy object_id
           
+          // Sprawdź czy to testowy webhook (fake URL)
+          const isTestWebhook = webhookData?.url?.includes('crm-target-fake.com') || webhookData?.url?.includes('fake');
+          
+          if (isTestWebhook) {
+            console.log('[webhook/otodom] 🧪 Test webhook received (from Test Callback) - skipping apartment update');
+            console.log('[webhook/otodom] Test webhook transaction_id:', transaction_id, '| object_id:', object_id);
+            return; // Nie aktualizujemy mieszkania dla testowych webhooków
+          }
+          
           console.log('[webhook/otodom] advert_posted_success - searching for apartment with transaction_id:', transaction_id);
           
           // Znajdź mieszkanie po transaction_id zapisanym w externalIds.otodom
           // (podczas publikacji zapisujemy transaction_id jako tymczasowy identyfikator)
-          const apartment = await Apartment.findOne({
+          let apartment = await Apartment.findOne({
             'externalIds.otodom': transaction_id
           });
+          
+          // Jeśli nie znaleziono po transaction_id, spróbuj znaleźć ostatnie mieszkanie z UUID w externalIds.otodom
+          // (może być problem z synchronizacją - webhook przyszedł przed zapisaniem transaction_id)
+          if (!apartment) {
+            console.log('[webhook/otodom] Not found by transaction_id, trying to find recent apartment with UUID...');
+            // Znajdź mieszkanie które ma UUID w externalIds.otodom (transaction_id format)
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            apartment = await Apartment.findOne({
+              'externalIds.otodom': { $regex: uuidPattern }
+            }).sort({ updatedAt: -1 }); // Najnowsze mieszkanie
+          }
           
           if (apartment) {
             // Zaktualizuj mieszkanie z prawdziwym object_id (nie URL) - potrzebny do operacji API
@@ -120,6 +140,7 @@ router.post('/otodom', express.json(), (req, res) => {
             // Jeśli nie znaleziono po transaction_id, spróbuj znaleźć po custom_fields.reference_id
             // (jeśli webhook zawiera te dane)
             console.warn('[webhook/otodom] ⚠️ No apartment found for transaction_id:', transaction_id);
+            console.warn('[webhook/otodom] This might be a test webhook or webhook from old/deleted publication');
             console.warn('[webhook/otodom] Full webhook payload:', JSON.stringify(payload, null, 2));
           }
         } else if (event_type === 'advert_posted_error') {
