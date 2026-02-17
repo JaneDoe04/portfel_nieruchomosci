@@ -302,6 +302,10 @@ export async function publishOtodomAdvert(apartment, userId) {
   // Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
   // Na razie pomijamy contact - API użyje danych z konta OAuth
 
+  // Log payload przed wysłaniem (dla debugowania)
+  console.log('[otodom/publish] Payload:', JSON.stringify(advertData, null, 2));
+  console.log('[otodom/publish] Location:', JSON.stringify(location, null, 2));
+
   try {
     const response = await axios.post(
       OTODOM_API_BASE, // https://api.olxgroup.com/advert/v1
