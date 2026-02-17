@@ -7,6 +7,7 @@
 
 import express from 'express';
 import crypto from 'crypto';
+import Apartment from '../models/Apartment.js';
 
 const router = express.Router();
 
@@ -56,9 +57,46 @@ router.post('/otodom', express.json(), (req, res) => {
   }
 
   // Process async so we respond within 2 seconds
-  setImmediate(() => {
-    console.log('[webhook/otodom]', JSON.stringify(payload));
-    // TODO: handle Advert Lifecycle / Publish Advert flows, e.g. update local advert state
+  setImmediate(async () => {
+    try {
+      console.log('[webhook/otodom] Received:', JSON.stringify(payload, null, 2));
+      
+      const { flow, event_type, object_id, transaction_id, data: webhookData } = payload;
+      
+      // Obsługa webhooków dla publikacji ogłoszeń
+      if (flow === 'publish_advert') {
+        if (event_type === 'advert_posted_success') {
+          // Ogłoszenie zostało opublikowane - zaktualizuj mieszkanie z prawdziwym ID ogłoszenia
+          // object_id to prawdziwe ID ogłoszenia na Otodom (używamy go do operacji API)
+          // webhookData może zawierać URL ogłoszenia, ale do operacji API potrzebujemy object_id
+          
+          // Znajdź mieszkanie po transaction_id zapisanym w externalIds.otodom
+          // (podczas publikacji zapisujemy transaction_id jako tymczasowy identyfikator)
+          const apartment = await Apartment.findOne({
+            'externalIds.otodom': transaction_id
+          });
+          
+          if (apartment) {
+            // Zaktualizuj mieszkanie z prawdziwym object_id (nie URL) - potrzebny do operacji API
+            // object_id to prawdziwe ID ogłoszenia, które używamy w DELETE /advert/v1/{object_id}
+            apartment.externalIds = apartment.externalIds || {};
+            apartment.externalIds.otodom = object_id; // Zapisujemy object_id, nie URL
+            await apartment.save();
+            console.log('[webhook/otodom] Updated apartment:', apartment._id, 'with object_id:', object_id);
+          } else {
+            // Jeśli nie znaleziono po transaction_id, spróbuj znaleźć po custom_fields.reference_id
+            // (jeśli webhook zawiera te dane)
+            console.warn('[webhook/otodom] No apartment found for transaction_id:', transaction_id, '- webhook payload:', JSON.stringify(payload));
+          }
+        } else if (event_type === 'advert_posted_error') {
+          console.error('[webhook/otodom] Advert posting failed:', webhookData);
+        } else if (event_type === 'advert_location_error') {
+          console.warn('[webhook/otodom] Location error (but advert may be posted):', webhookData);
+        }
+      }
+    } catch (err) {
+      console.error('[webhook/otodom] Error processing webhook:', err);
+    }
   });
 
   res.status(200).send('OK');

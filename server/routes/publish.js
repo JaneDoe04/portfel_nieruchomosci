@@ -132,8 +132,9 @@ router.post('/:apartmentId/otodom', async (req, res) => {
     const result = await publishOtodomAdvert(apartment, req.user._id);
 
     // Zaktualizuj externalIds w mieszkaniu
+    // Zapisujemy transaction_id jako tymczasowy identyfikator - prawdziwy URL przyjdzie przez webhook
     apartment.externalIds = apartment.externalIds || {};
-    apartment.externalIds.otodom = result.url;
+    apartment.externalIds.otodom = result.transactionId || result.url; // Tymczasowo transaction_id, webhook zaktualizuje na prawdziwy URL
     await apartment.save();
 
     res.json({
@@ -171,10 +172,26 @@ router.put('/:apartmentId/otodom', async (req, res) => {
       return res.status(400).json({ message: 'Mieszkanie nie ma opublikowanego ogłoszenia na Otodom.' });
     }
 
-    // Wyciągnij ID z URL jeśli to pełny URL
-    const advertId = externalId.includes('/') 
-      ? externalId.split('/').pop() 
-      : externalId;
+    // externalId może być:
+    // 1. object_id (prawdziwe ID ogłoszenia z webhooka) - używamy bezpośrednio
+    // 2. transaction_id (tymczasowe ID z publikacji) - nie można aktualizować, webhook jeszcze nie przyszedł
+    // 3. URL (stary format) - wyciągamy ID z URL
+    
+    let advertId = externalId;
+    
+    // Jeśli to URL, wyciągnij ID z końca URL-a
+    if (externalId.includes('/')) {
+      advertId = externalId.split('/').pop();
+    }
+    
+    // Sprawdź czy to nie jest transaction_id (UUID format)
+    const isTransactionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(advertId);
+    
+    if (isTransactionId) {
+      return res.status(400).json({ 
+        message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Poczekaj na potwierdzenie z Otodom lub spróbuj ponownie za chwilę.' 
+      });
+    }
 
     await updateOtodomAdvert(advertId, apartment, req.user._id);
 
@@ -204,9 +221,29 @@ router.delete('/:apartmentId/otodom', async (req, res) => {
       return res.status(400).json({ message: 'Mieszkanie nie ma opublikowanego ogłoszenia na Otodom.' });
     }
 
-    const advertId = externalId.includes('/') 
-      ? externalId.split('/').pop() 
-      : externalId;
+    // externalId może być:
+    // 1. object_id (prawdziwe ID ogłoszenia z webhooka) - używamy bezpośrednio
+    // 2. transaction_id (tymczasowe ID z publikacji) - nie można usunąć, webhook jeszcze nie przyszedł
+    // 3. URL (stary format) - wyciągamy ID z URL
+    
+    let advertId = externalId;
+    
+    // Jeśli to URL, wyciągnij ID z końca URL-a
+    if (externalId.includes('/')) {
+      // Format: https://www.otodom.pl/pl/oferta/{id} lub podobny
+      advertId = externalId.split('/').pop();
+    }
+    
+    // Sprawdź czy to nie jest transaction_id (UUID format)
+    // Transaction ID to UUID (np. "e0863708-ce00-4fff-85b0-f85e36122876")
+    // Object ID to zwykle liczba lub krótszy identyfikator
+    const isTransactionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(advertId);
+    
+    if (isTransactionId) {
+      return res.status(400).json({ 
+        message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Poczekaj na potwierdzenie z Otodom lub spróbuj ponownie za chwilę.' 
+      });
+    }
 
     await deleteOtodomAdvert(advertId, req.user._id);
 
