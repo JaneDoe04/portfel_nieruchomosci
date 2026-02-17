@@ -9,10 +9,11 @@
 import axios from 'axios';
 import ApiCredentials from '../../models/ApiCredentials.js';
 
-const OTODOM_API_BASE = 'https://www.otodom.pl/api';
-// Otodom (Real Estate) używa OLX Group OAuth
+// Otodom używa OLX Group API (nie własnego API na otodom.pl)
+const OTODOM_API_BASE = 'https://api.olxgroup.com/advert/v1';
 const OTODOM_OAUTH_TOKEN_URL = 'https://api.olxgroup.com/oauth/v1/token';
 const OTODOM_LOCATIONS_BASE = 'https://api.olxgroup.com/locations/v1/urn:site:otodompl';
+const OTODOM_SITE_URN = 'urn:site:otodompl'; // Site URN dla Otodom
 
 const OTODOM_TEST_PREFIX = '[qatest-mercury]';
 const OTODOM_TEST_DESCRIPTION =
@@ -260,10 +261,12 @@ export async function publishOtodomAdvert(apartment, userId) {
   // Normalizuj URL-e zdjęć do pełnych URL-i (Otodom wymaga pełnych URL-i)
   const normalizedImages = normalizeImageUrls(apartment.photos || []);
 
+  // OLX Group API wymaga site_urn i category_urn (nie category_id)
   const advertData = {
+    site_urn: OTODOM_SITE_URN, // urn:site:otodompl
+    category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
     title: title.substring(0, 70), // Max 70 znaków
     description,
-    category_id: '5019', // Mieszkania do wynajęcia
     price: {
       value: apartment.price,
       currency: 'PLN',
@@ -280,7 +283,7 @@ export async function publishOtodomAdvert(apartment, userId) {
 
   try {
     const response = await axios.post(
-      `${OTODOM_API_BASE}/partner/adverts`,
+      OTODOM_API_BASE, // https://api.olxgroup.com/advert/v1
       advertData,
       {
         headers: {
@@ -294,13 +297,17 @@ export async function publishOtodomAdvert(apartment, userId) {
       }
     );
 
-    // Zaktualizuj externalIds w mieszkaniu
-    const advertId = response.data.id;
-    const advertUrl = response.data.url || `https://www.otodom.pl/pl/oferta/${advertId}`;
+    // OLX Group API zwraca transaction_id (nie id) - ogłoszenie jest publikowane asynchronicznie
+    const transactionId = response.data.transaction_id || response.data.id;
+    // URL może być w response.data.url lub trzeba będzie poczekać na webhook
+    const advertUrl = response.data.url || `https://www.otodom.pl/pl/oferta/${transactionId}`;
+
+    console.log('[otodom/publish] Success:', { transactionId, responseData: response.data });
 
     return {
       success: true,
-      advertId,
+      advertId: transactionId, // Używamy transaction_id jako tymczasowego ID
+      transactionId,
       url: advertUrl,
     };
   } catch (err) {
@@ -366,7 +373,7 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 
   try {
     await axios.put(
-      `${OTODOM_API_BASE}/partner/adverts/${externalId}`,
+      `${OTODOM_API_BASE}/${externalId}`, // https://api.olxgroup.com/advert/v1/{advert_id}
       advertData,
       {
         headers: {
@@ -423,7 +430,7 @@ export async function deleteOtodomAdvert(externalId, userId) {
 
   try {
     await axios.delete(
-      `${OTODOM_API_BASE}/partner/adverts/${externalId}`,
+      `${OTODOM_API_BASE}/${externalId}`, // https://api.olxgroup.com/advert/v1/{advert_id}
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
