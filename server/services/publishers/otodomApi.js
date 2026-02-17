@@ -23,6 +23,7 @@ const isTestMode = () => String(process.env.OTODOM_TEST_MODE || '').toLowerCase(
 
 /**
  * Konwertuj relatywne ścieżki zdjęć na pełne URL-e dla Otodom API
+ * OLX Group API wymaga tablicy obiektów z właściwością 'url'
  */
 function normalizeImageUrls(photos) {
   if (!Array.isArray(photos) || photos.length === 0) return [];
@@ -31,18 +32,18 @@ function normalizeImageUrls(photos) {
   
   return photos.map((photo) => {
     if (!photo) return null;
-    const url = String(photo).trim();
+    let url = String(photo).trim();
     // Jeśli już jest pełny URL (http/https), zwróć bez zmian
     if (/^https?:\/\//i.test(url)) {
-      return url;
+      return { url };
     }
     // Jeśli zaczyna się od /uploads, dodaj base URL
     if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
       const cleanPath = url.startsWith('/') ? url : `/${url}`;
-      return `${baseUrl}${cleanPath}`;
+      url = `${baseUrl}${cleanPath}`;
     }
-    // W przeciwnym razie zwróć jak jest (może być już pełny URL bez protokołu)
-    return url;
+    // Zwróć jako obiekt z właściwością 'url' (wymagane przez OLX Group API)
+    return { url };
   }).filter(Boolean);
 }
 
@@ -165,15 +166,22 @@ async function buildOtodomLocation(apartment) {
     }
   }
 
-  return {
+  // OLX Group API wymaga prostego obiektu location z lat/lon/exact
+  // custom_fields są opcjonalne i mogą być dodane osobno jeśli API je wspiera
+  const location = {
     exact: true,
     lat,
     lon,
-    custom_fields: {
-      city_id: cityId,
-      street_name: streetName,
-    },
   };
+
+  // Dodaj custom_fields jeśli są dostępne (może być wymagane przez Otodom)
+  if (cityId || streetName) {
+    location.custom_fields = {};
+    if (cityId) location.custom_fields.city_id = cityId;
+    if (streetName) location.custom_fields.street_name = streetName;
+  }
+
+  return location;
 }
 
 /**
@@ -254,32 +262,42 @@ export async function publishOtodomAdvert(apartment, userId) {
 
   const titleRaw = apartment.title || '';
   const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
-  const description = isTestMode()
+  
+  // Description: min 50 znaków (wymagane przez OLX Group API)
+  let description = isTestMode()
     ? OTODOM_TEST_DESCRIPTION
-    : (apartment.description || titleRaw);
+    : (apartment.description || titleRaw || '');
+  
+  // Jeśli opis jest za krótki, dodaj tekst
+  if (description.length < 50) {
+    description = description + ' ' + 'Mieszkanie do wynajęcia w doskonałej lokalizacji. Zapraszamy do kontaktu.';
+  }
+  description = description.substring(0, 65535); // Max 65535 znaków
 
-  // Normalizuj URL-e zdjęć do pełnych URL-i (Otodom wymaga pełnych URL-i)
+  // Normalizuj URL-e zdjęć do pełnych URL-i (OLX Group API wymaga tablicy obiektów z 'url')
   const normalizedImages = normalizeImageUrls(apartment.photos || []);
+  
+  // OLX Group API wymaga przynajmniej jednego zdjęcia
+  if (normalizedImages.length === 0) {
+    throw new Error('Otodom wymaga przynajmniej jednego zdjęcia do publikacji ogłoszenia.');
+  }
 
   // OLX Group API wymaga site_urn i category_urn (nie category_id)
   const advertData = {
     site_urn: OTODOM_SITE_URN, // urn:site:otodompl
     category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
-    title: title.substring(0, 70), // Max 70 znaków
+    title: title.substring(0, 70), // Max 70 znaków, min 5
     description,
     price: {
-      value: apartment.price,
+      value: Number(apartment.price), // Musi być liczbą
       currency: 'PLN',
     },
     location,
     images: normalizedImages,
-    contact: {
-      // TODO: Pobierz dane kontaktowe z konfiguracji
-      name: 'Agencja',
-      email: 'contact@example.com',
-      phone: '+48123456789',
-    },
   };
+
+  // Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
+  // Na razie pomijamy contact - API użyje danych z konta OAuth
 
   try {
     const response = await axios.post(
