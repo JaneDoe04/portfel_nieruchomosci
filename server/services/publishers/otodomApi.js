@@ -295,15 +295,17 @@ export async function publishOtodomAdvert(apartment, userId) {
     };
   }
 
-  // custom_fields na poziomie głównym powinny zawierać atrybuty z taxonomy API
-  // Zgodnie z dokumentacją: wymagane atrybuty dla apartments-for-rent to m.in. net-area-m2 (metraż)
-  // Format: tablica obiektów z code (URN) i value
-  const customFieldsAttributes = [];
+  // Zgodnie z dokumentacją OLX Group API:
+  // - attributes: tablica atrybutów z taxonomy (metraż, liczba pokoi itp.) - format: [{urn: "...", value: "..."}]
+  // - custom_fields: obiekt z metadanymi integracji (id, reference_id) - format: {id: "...", reference_id: "..."}
   
-  // Dodaj metraż jeśli jest dostępny (wymagany atrybut)
+  // Buduj tablicę atrybutów z taxonomy
+  const attributes = [];
+  
+  // Dodaj metraż jeśli jest dostępny (wymagany atrybut dla apartments-for-rent)
   if (apartment.area != null && apartment.area > 0) {
-    customFieldsAttributes.push({
-      code: 'urn:concept:net-area-m2',
+    attributes.push({
+      urn: 'urn:concept:net-area-m2', // Używamy 'urn' nie 'code'
       value: String(apartment.area),
     });
   }
@@ -319,8 +321,13 @@ export async function publishOtodomAdvert(apartment, userId) {
     },
     location, // location.custom_fields zawierają city_id i street_name
     images: normalizedImages,
-    // API wymaga custom_fields na poziomie głównym jako tablicy atrybutów z taxonomy
-    custom_fields: customFieldsAttributes.length > 0 ? customFieldsAttributes : [],
+    // Atrybuty z taxonomy (metraż, liczba pokoi itp.)
+    attributes: attributes.length > 0 ? attributes : [],
+    // custom_fields: metadane integracji (opcjonalne)
+    custom_fields: {
+      // Możemy dodać id mieszkania jako reference_id dla śledzenia
+      reference_id: apartment._id?.toString() || null,
+    },
   };
 
   // Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
