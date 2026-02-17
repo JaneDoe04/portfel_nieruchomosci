@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, UploadCloud, RefreshCw, Trash2 } from "lucide-react";
+import { X, UploadCloud, RefreshCw, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import api from "../../api/axios";
 import StatusBadge from "./StatusBadge";
 
@@ -69,10 +69,14 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 		setPublishing(true);
 		try {
 			const { data } = await api.post(`/publish/${apartment._id}/otodom`);
-			setPublishSuccess(data?.message || "Wysłano do Otodom.");
+			const successMsg = data?.message || "Ogłoszenie zostało wysłane do Otodom. Publikacja może potrwać kilka minut.";
+			setPublishSuccess(successMsg);
+			alert(`✅ ${successMsg}`);
 			onUpdated?.();
 		} catch (err) {
-			setPublishError(err.response?.data?.message || "Nie udało się opublikować na Otodom.");
+			const errorMsg = err.response?.data?.message || "Nie udało się opublikować na Otodom.";
+			setPublishError(errorMsg);
+			alert(`❌ ${errorMsg}`);
 		} finally {
 			setPublishing(false);
 		}
@@ -88,10 +92,14 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 		setPublishing(true);
 		try {
 			const { data } = await api.put(`/publish/${apartment._id}/otodom`);
-			setPublishSuccess(data?.message || "Zaktualizowano na Otodom.");
+			const successMsg = data?.message || "Ogłoszenie zostało zaktualizowane na Otodom.";
+			setPublishSuccess(successMsg);
+			alert(`✅ ${successMsg}`);
 			onUpdated?.();
 		} catch (err) {
-			setPublishError(err.response?.data?.message || "Nie udało się zaktualizować na Otodom.");
+			const errorMsg = err.response?.data?.message || "Nie udało się zaktualizować na Otodom.";
+			setPublishError(errorMsg);
+			alert(`❌ ${errorMsg}`);
 		} finally {
 			setPublishing(false);
 		}
@@ -104,14 +112,18 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 			setPublishError("Brak ogłoszenia Otodom do usunięcia.");
 			return;
 		}
-		if (!window.confirm("Usunąć ogłoszenie z Otodom?")) return;
+		if (!window.confirm("Czy na pewno chcesz usunąć ogłoszenie z Otodom?")) return;
 		setPublishing(true);
 		try {
 			const { data } = await api.delete(`/publish/${apartment._id}/otodom`);
-			setPublishSuccess(data?.message || "Usunięto z Otodom.");
+			const successMsg = data?.message || "Ogłoszenie zostało usunięte z Otodom.";
+			setPublishSuccess(successMsg);
+			alert(`✅ ${successMsg}`);
 			onUpdated?.();
 		} catch (err) {
-			setPublishError(err.response?.data?.message || "Nie udało się usunąć z Otodom.");
+			const errorMsg = err.response?.data?.message || "Nie udało się usunąć z Otodom.";
+			setPublishError(errorMsg);
+			alert(`❌ ${errorMsg}`);
 		} finally {
 			setPublishing(false);
 		}
@@ -276,10 +288,16 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 							</button>
 						</div>
 						{publishError && (
-							<p className='mt-3 text-xs text-red-600'>{publishError}</p>
+							<div className='mt-3 flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200'>
+								<AlertCircle className='w-4 h-4 text-red-600 flex-shrink-0 mt-0.5' />
+								<p className='text-sm text-red-700 flex-1'>{publishError}</p>
+							</div>
 						)}
 						{publishSuccess && (
-							<p className='mt-3 text-xs text-emerald-700'>{publishSuccess}</p>
+							<div className='mt-3 flex items-start gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200'>
+								<CheckCircle2 className='w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5' />
+								<p className='text-sm text-emerald-700 flex-1'>{publishSuccess}</p>
+							</div>
 						)}
 					</div>
 

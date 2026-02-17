@@ -65,10 +65,14 @@ router.post('/otodom', express.json(), (req, res) => {
       
       // Obsługa webhooków dla publikacji ogłoszeń
       if (flow === 'publish_advert') {
+        console.log('[webhook/otodom] Processing publish_advert flow:', { event_type, object_id, transaction_id });
+        
         if (event_type === 'advert_posted_success') {
           // Ogłoszenie zostało opublikowane - zaktualizuj mieszkanie z prawdziwym ID ogłoszenia
           // object_id to prawdziwe ID ogłoszenia na Otodom (używamy go do operacji API)
           // webhookData może zawierać URL ogłoszenia, ale do operacji API potrzebujemy object_id
+          
+          console.log('[webhook/otodom] advert_posted_success - searching for apartment with transaction_id:', transaction_id);
           
           // Znajdź mieszkanie po transaction_id zapisanym w externalIds.otodom
           // (podczas publikacji zapisujemy transaction_id jako tymczasowy identyfikator)
@@ -79,20 +83,34 @@ router.post('/otodom', express.json(), (req, res) => {
           if (apartment) {
             // Zaktualizuj mieszkanie z prawdziwym object_id (nie URL) - potrzebny do operacji API
             // object_id to prawdziwe ID ogłoszenia, które używamy w DELETE /advert/v1/{object_id}
+            const oldValue = apartment.externalIds?.otodom;
             apartment.externalIds = apartment.externalIds || {};
             apartment.externalIds.otodom = object_id; // Zapisujemy object_id, nie URL
             await apartment.save();
-            console.log('[webhook/otodom] Updated apartment:', apartment._id, 'with object_id:', object_id);
+            console.log('[webhook/otodom] ✅ Updated apartment:', apartment._id, '| Old:', oldValue, '| New object_id:', object_id);
           } else {
             // Jeśli nie znaleziono po transaction_id, spróbuj znaleźć po custom_fields.reference_id
             // (jeśli webhook zawiera te dane)
-            console.warn('[webhook/otodom] No apartment found for transaction_id:', transaction_id, '- webhook payload:', JSON.stringify(payload));
+            console.warn('[webhook/otodom] ⚠️ No apartment found for transaction_id:', transaction_id);
+            console.warn('[webhook/otodom] Full webhook payload:', JSON.stringify(payload, null, 2));
           }
         } else if (event_type === 'advert_posted_error') {
-          console.error('[webhook/otodom] Advert posting failed:', webhookData);
+          console.error('[webhook/otodom] ❌ Advert posting failed:', {
+            transaction_id,
+            object_id,
+            webhookData: JSON.stringify(webhookData, null, 2)
+          });
         } else if (event_type === 'advert_location_error') {
-          console.warn('[webhook/otodom] Location error (but advert may be posted):', webhookData);
+          console.warn('[webhook/otodom] ⚠️ Location error (but advert may be posted):', {
+            transaction_id,
+            object_id,
+            webhookData: JSON.stringify(webhookData, null, 2)
+          });
+        } else {
+          console.log('[webhook/otodom] Unknown event_type:', event_type, '| Full payload:', JSON.stringify(payload, null, 2));
         }
+      } else {
+        console.log('[webhook/otodom] Unknown flow:', flow, '| Full payload:', JSON.stringify(payload, null, 2));
       }
     } catch (err) {
       console.error('[webhook/otodom] Error processing webhook:', err);

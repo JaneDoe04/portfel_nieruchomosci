@@ -184,16 +184,22 @@ router.put('/:apartmentId/otodom', async (req, res) => {
       advertId = externalId.split('/').pop();
     }
     
-    // Sprawdź czy to nie jest transaction_id (UUID format)
-    const isTransactionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(advertId);
-    
-    if (isTransactionId) {
-      return res.status(400).json({ 
-        message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Poczekaj na potwierdzenie z Otodom lub spróbuj ponownie za chwilę.' 
-      });
+    // UUID może być zarówno transaction_id jak i object_id z webhooka
+    // Spróbujmy zaktualizować - jeśli to transaction_id, API zwróci błąd
+    // Jeśli to object_id, operacja się powiedzie
+    try {
+      await updateOtodomAdvert(advertId, apartment, req.user._id);
+    } catch (err) {
+      // Jeśli błąd "not found" lub "invalid", może to być transaction_id
+      const errorMsg = err.message?.toLowerCase() || '';
+      if (errorMsg.includes('not found') || errorMsg.includes('invalid') || errorMsg.includes('advert')) {
+        return res.status(400).json({ 
+          message: 'Ogłoszenie jest jeszcze w trakcie publikacji lub nie zostało jeszcze opublikowane. Poczekaj na potwierdzenie z Otodom lub sprawdź logi webhooków.' 
+        });
+      }
+      // Inny błąd - przekaż dalej
+      throw err;
     }
-
-    await updateOtodomAdvert(advertId, apartment, req.user._id);
 
     res.json({
       success: true,
@@ -234,18 +240,22 @@ router.delete('/:apartmentId/otodom', async (req, res) => {
       advertId = externalId.split('/').pop();
     }
     
-    // Sprawdź czy to nie jest transaction_id (UUID format)
-    // Transaction ID to UUID (np. "e0863708-ce00-4fff-85b0-f85e36122876")
-    // Object ID to zwykle liczba lub krótszy identyfikator
-    const isTransactionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(advertId);
-    
-    if (isTransactionId) {
-      return res.status(400).json({ 
-        message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Poczekaj na potwierdzenie z Otodom lub spróbuj ponownie za chwilę.' 
-      });
+    // UUID może być zarówno transaction_id jak i object_id z webhooka
+    // Spróbujmy usunąć - jeśli to transaction_id, API zwróci błąd
+    // Jeśli to object_id, operacja się powiedzie
+    try {
+      await deleteOtodomAdvert(advertId, req.user._id);
+    } catch (err) {
+      // Jeśli błąd "not found" lub "invalid", może to być transaction_id
+      const errorMsg = err.message?.toLowerCase() || '';
+      if (errorMsg.includes('not found') || errorMsg.includes('invalid') || errorMsg.includes('advert')) {
+        return res.status(400).json({ 
+          message: 'Ogłoszenie jest jeszcze w trakcie publikacji lub nie zostało jeszcze opublikowane. Poczekaj na potwierdzenie z Otodom lub sprawdź logi webhooków.' 
+        });
+      }
+      // Inny błąd - przekaż dalej
+      throw err;
     }
-
-    await deleteOtodomAdvert(advertId, req.user._id);
 
     // Usuń externalId z mieszkania
     apartment.externalIds = apartment.externalIds || {};
