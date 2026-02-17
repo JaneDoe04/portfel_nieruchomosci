@@ -13,6 +13,31 @@ const getPublicBaseUrl = (req) => {
   return `${proto}://${req.get('host')}`;
 };
 
+const decodeUserIdFromState = (rawState) => {
+  if (!rawState) return null;
+  const stateStr = String(rawState);
+
+  // If state is already a Mongo ObjectId (24 hex chars), accept it.
+  if (/^[a-f0-9]{24}$/i.test(stateStr)) return stateStr;
+
+  const tryDecode = (encoding) => {
+    try {
+      const json = Buffer.from(stateStr, encoding).toString('utf8');
+      const parsed = JSON.parse(json);
+      return parsed?.userId || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Prefer URL-safe base64
+  return (
+    tryDecode('base64url') ||
+    tryDecode('base64') ||
+    null
+  );
+};
+
 /**
  * GET /api/api-config/:platform/callback
  * Callback OAuth 2.0 – PUBLIC (bez protect), bo OLX przekierowuje tu przeglądarkę bez tokena.
@@ -34,15 +59,7 @@ router.get('/:platform/callback', async (req, res) => {
       return res.status(400).json({ message: 'Brak kodu autoryzacji.' });
     }
 
-    let userId = null;
-    if (state) {
-      try {
-        const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
-        userId = decoded.userId;
-      } catch (err) {
-        console.error('Błąd dekodowania state:', err);
-      }
-    }
+    const userId = decodeUserIdFromState(state);
 
     if (!userId) {
       return res.status(400).json({ message: 'Brak informacji o użytkowniku w callback.' });
@@ -107,14 +124,29 @@ router.get('/:platform/callback', async (req, res) => {
       { upsert: true, new: true }
     );
 
+    const appUrl = process.env.CLIENT_ORIGIN && /^https?:\/\//.test(process.env.CLIENT_ORIGIN)
+      ? process.env.CLIENT_ORIGIN
+      : null;
+
     res.send(`
       <html>
-        <body>
-          <h1>Autoryzacja zakończona pomyślnie!</h1>
-          <p>Możesz zamknąć to okno.</p>
+        <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 24px;">
+          <h1 style="margin: 0 0 8px;">Autoryzacja zakończona pomyślnie!</h1>
+          <p style="margin: 0 0 16px;">Możesz zamknąć to okno i wrócić do aplikacji.</p>
+          <p style="margin: 0; color: #475569; font-size: 14px;">
+            Jeśli okno nie zamknie się automatycznie, po prostu je zamknij.
+          </p>
           <script>
-            window.opener.postMessage({ type: 'oauth_success', platform: '${platform}' }, '*');
-            setTimeout(() => window.close(), 2000);
+            try {
+              if (window.opener && !window.opener.closed) {
+                window.opener.postMessage({ type: 'oauth_success', platform: '${platform}' }, '*');
+                setTimeout(() => window.close(), 700);
+              } else {
+                ${appUrl ? `setTimeout(() => { window.location.href = '${appUrl.replace(/'/g, "\\'")}/api-settings'; }, 400);` : ''}
+              }
+            } catch (e) {
+              ${appUrl ? `setTimeout(() => { window.location.href = '${appUrl.replace(/'/g, "\\'")}/api-settings'; }, 400);` : ''}
+            }
           </script>
         </body>
       </html>
@@ -233,8 +265,8 @@ router.post('/:platform/authorize', async (req, res) => {
     // Użytkownik zostanie przekierowany do OLX/Otodom, gdzie zaloguje się SWOIM kontem
     const redirectUri = `${getPublicBaseUrl(req)}/api/api-config/${platform}/callback`;
     
-    // Zapisz userId w state, żeby wiedzieć, dla kogo autoryzujemy (w callback)
-    const state = Buffer.from(JSON.stringify({ userId: req.user._id.toString() })).toString('base64');
+    // Zapisz userId w state (base64url, żeby nie psuły go znaki +/=/ w URL)
+    const state = Buffer.from(JSON.stringify({ userId: req.user._id.toString() })).toString('base64url');
     
     let authUrl;
     if (platform === 'olx') {
