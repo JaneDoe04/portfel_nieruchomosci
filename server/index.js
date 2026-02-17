@@ -14,6 +14,9 @@ import webhooksRoutes from "./routes/webhooks.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy headers on Render (needed for correct req.protocol = https)
+app.set('trust proxy', 1);
+
 // CORS: tylko sensowne origin (http/https). Na Renderze ustaw CLIENT_ORIGIN=http://localhost:5173 do devu.
 const originEnv = process.env.CLIENT_ORIGIN;
 const allowedOrigin =

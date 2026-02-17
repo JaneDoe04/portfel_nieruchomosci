@@ -5,6 +5,14 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const getPublicBaseUrl = (req) => {
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .toString()
+    .split(',')[0]
+    .trim();
+  return `${proto}://${req.get('host')}`;
+};
+
 /**
  * GET /api/api-config/:platform/callback
  * Callback OAuth 2.0 – PUBLIC (bez protect), bo OLX przekierowuje tu przeglądarkę bez tokena.
@@ -13,6 +21,14 @@ router.get('/:platform/callback', async (req, res) => {
   try {
     const { platform } = req.params;
     const { code, state } = req.query;
+
+    console.log('[oauth/callback] start', {
+      platform,
+      hasCode: Boolean(code),
+      hasState: Boolean(state),
+      host: req.get('host'),
+      xfp: req.headers['x-forwarded-proto'],
+    });
 
     if (!code) {
       return res.status(400).json({ message: 'Brak kodu autoryzacji.' });
@@ -37,7 +53,7 @@ router.get('/:platform/callback', async (req, res) => {
       return res.status(400).json({ message: 'Brak konfiguracji API.' });
     }
 
-    const redirectUri = `${req.protocol}://${req.get('host')}/api/api-config/${platform}/callback`;
+    const redirectUri = `${getPublicBaseUrl(req)}/api/api-config/${platform}/callback`;
 
     let tokenResponse;
     if (platform === 'otodom') {
@@ -46,6 +62,7 @@ router.get('/:platform/callback', async (req, res) => {
         return res.status(400).send('Brak API KEY (X-API-KEY) dla Otodom. Dodaj go w Ustawieniach API.');
       }
       const basic = Buffer.from(`${appCredentials.clientId}:${appCredentials.clientSecret}`, 'utf8').toString('base64');
+      console.log('[oauth/callback] exchanging token (otodom)', { redirectUri, userId });
       tokenResponse = await axios.post(
         'https://api.olxgroup.com/oauth/v1/token',
         { grant_type: 'authorization_code', code },
@@ -61,6 +78,7 @@ router.get('/:platform/callback', async (req, res) => {
       );
     } else {
       // OLX PL flow (placeholder) – can be adjusted when OLX API access is ready
+      console.log('[oauth/callback] exchanging token (olx)', { redirectUri, userId });
       tokenResponse = await axios.post('https://www.olx.pl/api/open/oauth/token', {
         grant_type: 'authorization_code',
         code,
@@ -71,6 +89,7 @@ router.get('/:platform/callback', async (req, res) => {
     }
 
     const { access_token, refresh_token, expires_in } = tokenResponse.data;
+    console.log('[oauth/callback] token OK', { platform, userId, expires_in });
 
     await ApiCredentials.findOneAndUpdate(
       { platform, userId },
@@ -212,7 +231,7 @@ router.post('/:platform/authorize', async (req, res) => {
 
     // OAuth 2.0 authorization flow
     // Użytkownik zostanie przekierowany do OLX/Otodom, gdzie zaloguje się SWOIM kontem
-    const redirectUri = `${req.protocol}://${req.get('host')}/api/api-config/${platform}/callback`;
+    const redirectUri = `${getPublicBaseUrl(req)}/api/api-config/${platform}/callback`;
     
     // Zapisz userId w state, żeby wiedzieć, dla kogo autoryzujemy (w callback)
     const state = Buffer.from(JSON.stringify({ userId: req.user._id.toString() })).toString('base64');
@@ -226,7 +245,14 @@ router.post('/:platform/authorize', async (req, res) => {
       authUrl = `https://www.otodom.pl/pl/crm/authorization/?response_type=code&client_id=${encodeURIComponent(appCredentials.clientId)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
-    res.json({ authUrl });
+    console.log('[oauth/authorize]', {
+      platform,
+      userId: req.user?._id?.toString(),
+      redirectUri,
+      hasClientId: Boolean(appCredentials?.clientId),
+      hasApiKey: Boolean(appCredentials?.apiKey),
+    });
+    res.json({ authUrl, redirectUri });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Błąd generowania URL autoryzacji.' });
   }
