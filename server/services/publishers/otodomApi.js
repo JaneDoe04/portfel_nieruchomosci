@@ -295,8 +295,9 @@ export async function publishOtodomAdvert(apartment, userId) {
     };
   }
 
-  // API wymaga custom_fields na poziomie głównym (błąd: "custom_fields is a required field")
-  // Mimo że dokumentacja mówi o location.custom_fields, API waliduje też główne custom_fields
+  // custom_fields na poziomie głównym powinny zawierać atrybuty z taxonomy API (np. metraż, liczba pokoi)
+  // Dane lokalizacyjne (city_id, street_name) są w location.custom_fields
+  // Na razie wysyłamy pusty obiekt - jeśli API wymaga konkretnych atrybutów, trzeba będzie pobrać je z taxonomy API
   const advertData = {
     site_urn: OTODOM_SITE_URN, // urn:site:otodompl
     category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
@@ -306,13 +307,11 @@ export async function publishOtodomAdvert(apartment, userId) {
       value: Number(apartment.price), // Musi być liczbą
       currency: 'PLN',
     },
-    location, // location.custom_fields są też wymagane
+    location, // location.custom_fields zawierają city_id i street_name
     images: normalizedImages,
     // API wymaga custom_fields na poziomie głównym (walidacja mówi "custom_fields is a required field")
-    custom_fields: {
-      city_id: location.custom_fields.city_id,
-      street_name: location.custom_fields.street_name,
-    },
+    // Na razie pusty obiekt - jeśli API wymaga konkretnych atrybutów, trzeba będzie je dodać
+    custom_fields: {},
   };
 
   // Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
