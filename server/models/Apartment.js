@@ -38,6 +38,17 @@ const apartmentSchema = new mongoose.Schema(
       min: 0,
       comment: 'Metraż w m²',
     },
+    cityId: {
+      type: Number,
+      default: null,
+      comment: 'ID miejscowości Otodom/OLX (z dokumentacji lokalizacji)',
+    },
+    streetName: {
+      type: String,
+      default: '',
+      trim: true,
+      comment: 'Nazwa ulicy (wymagana z city_id dla Otodom API)',
+    },
     status: {
       type: String,
       enum: STATUS_ENUM,

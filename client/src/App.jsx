@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/Layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import ApartmentList from "./components/apartments/ApartmentList";
+import ApiSettings from "./pages/ApiSettings";
 import Login from "./pages/Login";
 
 export default function App() {
@@ -29,6 +30,10 @@ export default function App() {
 					<Route
 						path='apartments'
 						element={<ApartmentList />}
+					/>
+					<Route
+						path='api-settings'
+						element={<ApiSettings />}
 					/>
 				</Route>
 				<Route
