@@ -10,7 +10,8 @@ import axios from 'axios';
 import ApiCredentials from '../../models/ApiCredentials.js';
 
 const OTODOM_API_BASE = 'https://www.otodom.pl/api';
-const OTODOM_AUTH_URL = 'https://www.otodom.pl/api/open/oauth/token';
+// Otodom (Real Estate) używa OLX Group OAuth
+const OTODOM_OAUTH_TOKEN_URL = 'https://api.olxgroup.com/oauth/v1/token';
 const OTODOM_LOCATIONS_BASE = 'https://api.olxgroup.com/locations/v1/urn:site:otodompl';
 
 const OTODOM_TEST_PREFIX = '[qatest-mercury]';
@@ -18,6 +19,17 @@ const OTODOM_TEST_DESCRIPTION =
   'Czasami musimy dodać takie ogłoszenie, żeby zweryfikować działanie niektórych funkcji systemu. Liczymy na Twoją wyrozumiałość  Radzimy skorzystać ponownie z naszej wyszukiwarki ofert.<br/><br/> Powodzenia w dalszych poszukiwaniach!';
 
 const isTestMode = () => String(process.env.OTODOM_TEST_MODE || '').toLowerCase() === 'true';
+
+async function getOtodomAppCredentials() {
+  const appCreds = await ApiCredentials.findOne({ platform: 'otodom', userId: null }).lean();
+  if (!appCreds?.clientId || !appCreds?.clientSecret) {
+    throw new Error('Brak app-level credentials dla Otodom (clientId/clientSecret). Uzupełnij w Ustawieniach API.');
+  }
+  if (!appCreds?.apiKey) {
+    throw new Error('Brak API KEY (X-API-KEY) dla Otodom. Uzupełnij w Ustawieniach API.');
+  }
+  return appCreds;
+}
 
 function buildTestSafeTitle(rawTitle) {
   const base = (rawTitle || '').trim() || 'Test ogłoszenia';
@@ -166,12 +178,23 @@ export async function getOtodomAccessToken(userId) {
   // Jeśli mamy refresh token, użyj go do odświeżenia
   if (credentials.refreshToken) {
     try {
-      const response = await axios.post(OTODOM_AUTH_URL, {
-        grant_type: 'refresh_token',
-        refresh_token: credentials.refreshToken,
-        client_id: credentials.clientId,
-        client_secret: credentials.clientSecret,
-      });
+      // Refresh token przez OLX Group OAuth
+      const appCreds = await getOtodomAppCredentials();
+      const basic = Buffer.from(`${appCreds.clientId}:${appCreds.clientSecret}`, 'utf8').toString('base64');
+      const response = await axios.post(
+        OTODOM_OAUTH_TOKEN_URL,
+        { grant_type: 'refresh_token', refresh_token: credentials.refreshToken },
+        {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${basic}`,
+            'X-API-KEY': appCreds.apiKey,
+            'User-Agent': 'PortfelNieruchomosci',
+          },
+          timeout: 15000,
+        }
+      );
 
       const { access_token, refresh_token, expires_in } = response.data;
       
@@ -199,6 +222,7 @@ export async function getOtodomAccessToken(userId) {
  */
 export async function publishOtodomAdvert(apartment, userId) {
   const accessToken = await getOtodomAccessToken(userId);
+  const appCreds = await getOtodomAppCredentials();
 
   const location = await buildOtodomLocation(apartment);
 
@@ -233,8 +257,12 @@ export async function publishOtodomAdvert(apartment, userId) {
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'X-API-KEY': appCreds.apiKey,
+          Accept: 'application/json',
           'Content-Type': 'application/json',
+          'User-Agent': 'PortfelNieruchomosci',
         },
+        timeout: 20000,
       }
     );
 
@@ -248,8 +276,17 @@ export async function publishOtodomAdvert(apartment, userId) {
       url: advertUrl,
     };
   } catch (err) {
-    console.error('Błąd publikacji na Otodom:', err.response?.data || err.message);
-    throw new Error(`Nie udało się opublikować ogłoszenia na Otodom: ${err.response?.data?.message || err.message}`);
+    console.error('Błąd publikacji na Otodom:', {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
+    const details =
+      err.response?.data?.message ||
+      err.response?.data?.error_description ||
+      err.response?.data?.error ||
+      err.message;
+    throw new Error(`Nie udało się opublikować ogłoszenia na Otodom: ${details}`);
   }
 }
 
@@ -261,6 +298,7 @@ export async function publishOtodomAdvert(apartment, userId) {
  */
 export async function updateOtodomAdvert(externalId, apartment, userId) {
   const accessToken = await getOtodomAccessToken(userId);
+  const appCreds = await getOtodomAppCredentials();
 
   const titleRaw = apartment.title || '';
   const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
@@ -285,15 +323,28 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'X-API-KEY': appCreds.apiKey,
+          Accept: 'application/json',
           'Content-Type': 'application/json',
+          'User-Agent': 'PortfelNieruchomosci',
         },
+        timeout: 20000,
       }
     );
 
     return { success: true };
   } catch (err) {
-    console.error('Błąd aktualizacji ogłoszenia Otodom:', err.response?.data || err.message);
-    throw new Error(`Nie udało się zaktualizować ogłoszenia na Otodom: ${err.response?.data?.message || err.message}`);
+    console.error('Błąd aktualizacji ogłoszenia Otodom:', {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
+    const details =
+      err.response?.data?.message ||
+      err.response?.data?.error_description ||
+      err.response?.data?.error ||
+      err.message;
+    throw new Error(`Nie udało się zaktualizować ogłoszenia na Otodom: ${details}`);
   }
 }
 
@@ -304,6 +355,7 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
  */
 export async function deleteOtodomAdvert(externalId, userId) {
   const accessToken = await getOtodomAccessToken(userId);
+  const appCreds = await getOtodomAppCredentials();
 
   try {
     await axios.delete(
@@ -311,13 +363,26 @@ export async function deleteOtodomAdvert(externalId, userId) {
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'X-API-KEY': appCreds.apiKey,
+          Accept: 'application/json',
+          'User-Agent': 'PortfelNieruchomosci',
         },
+        timeout: 20000,
       }
     );
 
     return { success: true };
   } catch (err) {
-    console.error('Błąd usuwania ogłoszenia Otodom:', err.response?.data || err.message);
-    throw new Error(`Nie udało się usunąć ogłoszenia z Otodom: ${err.response?.data?.message || err.message}`);
+    console.error('Błąd usuwania ogłoszenia z Otodom:', {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
+    const details =
+      err.response?.data?.message ||
+      err.response?.data?.error_description ||
+      err.response?.data?.error ||
+      err.message;
+    throw new Error(`Nie udało się usunąć ogłoszenia z Otodom: ${details}`);
   }
 }

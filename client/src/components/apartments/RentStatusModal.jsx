@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, UploadCloud, RefreshCw, Trash2 } from "lucide-react";
 import api from "../../api/axios";
 import StatusBadge from "./StatusBadge";
 
@@ -25,6 +25,9 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 	);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
+	const [publishing, setPublishing] = useState(false);
+	const [publishError, setPublishError] = useState("");
+	const [publishSuccess, setPublishSuccess] = useState("");
 
 	const handleSave = async (e) => {
 		e.preventDefault();
@@ -49,6 +52,68 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 			alert(err.response?.data?.message || "Nie udało się zaktualizować wynajmu.");
 		} finally {
 			setSaving(false);
+		}
+	};
+
+	const canPublishNow = apartment.status === "WOLNE";
+	const statusWillBeFree = status === "WOLNE";
+	const needsSaveToPublish = statusWillBeFree && apartment.status !== "WOLNE";
+
+	const handlePublishOtodom = async () => {
+		setPublishError("");
+		setPublishSuccess("");
+		if (!canPublishNow) {
+			setPublishError("Można publikować na Otodom tylko mieszkania ze statusem „Wolne”.");
+			return;
+		}
+		setPublishing(true);
+		try {
+			const { data } = await api.post(`/publish/${apartment._id}/otodom`);
+			setPublishSuccess(data?.message || "Wysłano do Otodom.");
+			onUpdated?.();
+		} catch (err) {
+			setPublishError(err.response?.data?.message || "Nie udało się opublikować na Otodom.");
+		} finally {
+			setPublishing(false);
+		}
+	};
+
+	const handleUpdateOtodom = async () => {
+		setPublishError("");
+		setPublishSuccess("");
+		if (!apartment.externalIds?.otodom) {
+			setPublishError("Brak ogłoszenia Otodom do aktualizacji (najpierw opublikuj).");
+			return;
+		}
+		setPublishing(true);
+		try {
+			const { data } = await api.put(`/publish/${apartment._id}/otodom`);
+			setPublishSuccess(data?.message || "Zaktualizowano na Otodom.");
+			onUpdated?.();
+		} catch (err) {
+			setPublishError(err.response?.data?.message || "Nie udało się zaktualizować na Otodom.");
+		} finally {
+			setPublishing(false);
+		}
+	};
+
+	const handleDeleteOtodom = async () => {
+		setPublishError("");
+		setPublishSuccess("");
+		if (!apartment.externalIds?.otodom) {
+			setPublishError("Brak ogłoszenia Otodom do usunięcia.");
+			return;
+		}
+		if (!window.confirm("Usunąć ogłoszenie z Otodom?")) return;
+		setPublishing(true);
+		try {
+			const { data } = await api.delete(`/publish/${apartment._id}/otodom`);
+			setPublishSuccess(data?.message || "Usunięto z Otodom.");
+			onUpdated?.();
+		} catch (err) {
+			setPublishError(err.response?.data?.message || "Nie udało się usunąć z Otodom.");
+		} finally {
+			setPublishing(false);
 		}
 	};
 
@@ -166,6 +231,56 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 								className='w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm disabled:bg-slate-50 disabled:text-slate-400'
 							/>
 						</div>
+					</div>
+
+					<div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>
+						<p className='text-sm font-semibold text-slate-800 mb-1'>Publikacja Otodom</p>
+						<p className='text-xs text-slate-600 mb-3'>
+							Przycisk jest aktywny tylko, gdy mieszkanie ma status <span className='font-semibold'>Wolne</span>.
+						</p>
+						{needsSaveToPublish && (
+							<p className='text-xs text-amber-700 mb-3'>
+								Ustawiłeś status „Wolne”, ale nie jest jeszcze zapisany. Najpierw kliknij „Zapisz zmiany”, a potem publikuj.
+							</p>
+						)}
+						<div className='flex flex-wrap gap-2'>
+							<button
+								type='button'
+								onClick={handlePublishOtodom}
+								disabled={publishing || saving || !canPublishNow}
+								className='inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 text-sm'
+								title='Opublikuj na Otodom'
+							>
+								<UploadCloud className='w-4 h-4' />
+								{publishing ? "Wysyłanie..." : "Publikuj"}
+							</button>
+							<button
+								type='button'
+								onClick={handleUpdateOtodom}
+								disabled={publishing || saving || !apartment.externalIds?.otodom}
+								className='inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 text-sm'
+								title='Aktualizuj ogłoszenie na Otodom'
+							>
+								<RefreshCw className='w-4 h-4' />
+								Aktualizuj
+							</button>
+							<button
+								type='button'
+								onClick={handleDeleteOtodom}
+								disabled={publishing || saving || !apartment.externalIds?.otodom}
+								className='inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 text-sm'
+								title='Usuń ogłoszenie z Otodom'
+							>
+								<Trash2 className='w-4 h-4' />
+								Usuń
+							</button>
+						</div>
+						{publishError && (
+							<p className='mt-3 text-xs text-red-600'>{publishError}</p>
+						)}
+						{publishSuccess && (
+							<p className='mt-3 text-xs text-emerald-700'>{publishSuccess}</p>
+						)}
 					</div>
 
 					<div className='flex justify-end gap-3 pt-2'>

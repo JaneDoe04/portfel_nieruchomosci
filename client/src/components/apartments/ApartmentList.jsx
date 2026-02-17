@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Building2, ExternalLink, Link2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import api from "../../api/axios";
 import StatusBadge from "./StatusBadge";
 import ApartmentForm from "./ApartmentForm";
-import ExternalLinksModal from "./ExternalLinksModal";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -19,8 +18,6 @@ export default function ApartmentList() {
 	const [loading, setLoading] = useState(true);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editingApartment, setEditingApartment] = useState(null);
-	const [linksModalOpen, setLinksModalOpen] = useState(false);
-	const [selectedApartment, setSelectedApartment] = useState(null);
 
 	const fetchApartments = async () => {
 		setLoading(true);
@@ -73,25 +70,6 @@ export default function ApartmentList() {
 	const formatPrice = (p) =>
 		p != null ? `${Number(p).toLocaleString("pl-PL")} zł` : "–";
 
-	const getFeedUrl = (platform) => {
-		const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
-		return `${baseUrl}/api/feeds/${platform}`;
-	};
-
-	const handleOpenFeed = (platform) => {
-		const url = getFeedUrl(platform);
-		window.open(url, '_blank', 'noopener,noreferrer');
-	};
-
-	const openLinksModal = (apt) => {
-		setSelectedApartment(apt);
-		setLinksModalOpen(true);
-	};
-
-	const handleLinksSave = () => {
-		fetchApartments();
-	};
-
 	return (
 		<div className='p-6 lg:p-8'>
 			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
@@ -133,9 +111,6 @@ export default function ApartmentList() {
 									<th className='text-right py-4 px-6 text-sm font-semibold text-slate-700'>
 										m²
 									</th>
-									<th className='text-center py-4 px-6 text-sm font-semibold text-slate-700'>
-										Publikacja
-									</th>
 									<th className='w-24 py-4 px-6' />
 								</tr>
 							</thead>
@@ -175,66 +150,6 @@ export default function ApartmentList() {
 											{apt.area ?? "–"}
 										</td>
 										<td className='py-4 px-6'>
-											<div className='flex flex-col items-center gap-2'>
-												{apt.status === 'WOLNE' ? (
-													<>
-														<div className='flex items-center gap-2'>
-															{apt.externalIds?.olx ? (
-																<a
-																	href={apt.externalIds.olx}
-																	target='_blank'
-																	rel='noopener noreferrer'
-																	className='p-1.5 rounded text-orange-600 hover:bg-orange-50'
-																	title='Otwórz ogłoszenie OLX'
-																>
-																	<ExternalLink className='w-4 h-4' />
-																</a>
-															) : (
-																<button
-																	type='button'
-																	onClick={() => handleOpenFeed('olx')}
-																	className='p-1.5 rounded text-slate-400 hover:bg-orange-50 hover:text-orange-600'
-																	title='Otwórz feed OLX'
-																>
-																	<Link2 className='w-4 h-4' />
-																</button>
-															)}
-															{apt.externalIds?.otodom ? (
-																<a
-																	href={apt.externalIds.otodom}
-																	target='_blank'
-																	rel='noopener noreferrer'
-																	className='p-1.5 rounded text-blue-600 hover:bg-blue-50'
-																	title='Otwórz ogłoszenie Otodom'
-																>
-																	<ExternalLink className='w-4 h-4' />
-																</a>
-															) : (
-																<button
-																	type='button'
-																	onClick={() => handleOpenFeed('otodom')}
-																	className='p-1.5 rounded text-slate-400 hover:bg-blue-50 hover:text-blue-600'
-																	title='Otwórz feed Otodom'
-																>
-																	<Link2 className='w-4 h-4' />
-																</button>
-															)}
-														</div>
-														<button
-															type='button'
-															onClick={() => openLinksModal(apt)}
-															className='text-xs text-slate-500 hover:text-primary-600 underline'
-															title='Zarządzaj linkami'
-														>
-															Linki
-														</button>
-													</>
-												) : (
-													<span className='text-xs text-slate-400'>–</span>
-												)}
-											</div>
-										</td>
-										<td className='py-4 px-6'>
 											<div className='flex items-center gap-2'>
 												<button
 													type='button'
@@ -270,17 +185,6 @@ export default function ApartmentList() {
 						setModalOpen(false);
 						setEditingApartment(null);
 					}}
-				/>
-			)}
-
-			{linksModalOpen && selectedApartment && (
-				<ExternalLinksModal
-					apartment={selectedApartment}
-					onClose={() => {
-						setLinksModalOpen(false);
-						setSelectedApartment(null);
-					}}
-					onSave={handleLinksSave}
 				/>
 			)}
 		</div>
