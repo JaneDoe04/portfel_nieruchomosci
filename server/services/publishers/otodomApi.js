@@ -338,20 +338,35 @@ export async function publishOtodomAdvert(apartment, userId) {
       message: err.message,
     });
     
-    // Wyciągnij czytelny komunikat błędu
+    // Wyciągnij czytelny komunikat błędu z szczegółami walidacji
     let details = '';
     if (err.response?.data) {
       const data = err.response.data;
-      if (typeof data === 'string') {
-        details = data;
+      
+      // Jeśli są szczegółowe błędy walidacji w errors array, wyświetl je
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        const errorMessages = data.errors.map((e) => {
+          if (typeof e === 'string') return e;
+          if (e?.field && e?.message) return `${e.field}: ${e.message}`;
+          if (e?.message) return e.message;
+          return JSON.stringify(e);
+        });
+        details = `Validation errors: ${errorMessages.join('; ')}`;
       } else if (data.message) {
         details = String(data.message);
+        // Jeśli jest message ale też errors, dodaj je
+        if (Array.isArray(data.errors) && data.errors.length > 0) {
+          details += ` (${data.errors.length} error(s))`;
+        }
+      } else if (typeof data === 'string') {
+        details = data;
       } else if (data.error_description) {
         details = String(data.error_description);
       } else if (data.error) {
         details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
       } else {
-        details = JSON.stringify(data);
+        // Fallback: wyświetl cały obiekt data jako JSON
+        details = JSON.stringify(data, null, 2);
       }
     } else if (err.message) {
       details = String(err.message);
