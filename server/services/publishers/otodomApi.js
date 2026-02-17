@@ -12,6 +12,18 @@ import ApiCredentials from '../../models/ApiCredentials.js';
 const OTODOM_API_BASE = 'https://www.otodom.pl/api';
 const OTODOM_AUTH_URL = 'https://www.otodom.pl/api/open/oauth/token';
 
+const OTODOM_TEST_PREFIX = '[qatest-mercury]';
+const OTODOM_TEST_DESCRIPTION =
+  'Czasami musimy dodać takie ogłoszenie, żeby zweryfikować działanie niektórych funkcji systemu. Liczymy na Twoją wyrozumiałość  Radzimy skorzystać ponownie z naszej wyszukiwarki ofert.<br/><br/> Powodzenia w dalszych poszukiwaniach!';
+
+const isTestMode = () => String(process.env.OTODOM_TEST_MODE || '').toLowerCase() === 'true';
+
+function buildTestSafeTitle(rawTitle) {
+  const base = (rawTitle || '').trim() || 'Test ogłoszenia';
+  if (base.toLowerCase().startsWith(OTODOM_TEST_PREFIX.toLowerCase())) return base;
+  return `${OTODOM_TEST_PREFIX} ${base}`;
+}
+
 /**
  * Pobierz lub odśwież access token dla Otodom dla KONKRETNEGO UŻYTKOWNIKA
  * @param {string|ObjectId} userId - ID użytkownika aplikacji
@@ -81,9 +93,15 @@ export async function publishOtodomAdvert(apartment, userId) {
   const cityId = apartment.cityId != null ? apartment.cityId : 26; // 26 = Warszawa w słowniku
   const streetName = (apartment.streetName && apartment.streetName.trim()) || 'Świętokrzyska'; // wymagane z city_id
 
+  const titleRaw = apartment.title || '';
+  const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
+  const description = isTestMode()
+    ? OTODOM_TEST_DESCRIPTION
+    : (apartment.description || titleRaw);
+
   const advertData = {
-    title: apartment.title.substring(0, 70), // Max 70 znaków
-    description: apartment.description || apartment.title,
+    title: title.substring(0, 70), // Max 70 znaków
+    description,
     category_id: '5019', // Mieszkania do wynajęcia
     price: {
       value: apartment.price,
@@ -143,9 +161,15 @@ export async function publishOtodomAdvert(apartment, userId) {
 export async function updateOtodomAdvert(externalId, apartment, userId) {
   const accessToken = await getOtodomAccessToken(userId);
 
+  const titleRaw = apartment.title || '';
+  const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
+  const description = isTestMode()
+    ? OTODOM_TEST_DESCRIPTION
+    : (apartment.description || titleRaw);
+
   const advertData = {
-    title: apartment.title.substring(0, 70),
-    description: apartment.description || apartment.title,
+    title: title.substring(0, 70),
+    description,
     price: {
       value: apartment.price,
       currency: 'PLN',
