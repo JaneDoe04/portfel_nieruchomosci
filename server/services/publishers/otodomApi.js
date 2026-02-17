@@ -20,6 +20,31 @@ const OTODOM_TEST_DESCRIPTION =
 
 const isTestMode = () => String(process.env.OTODOM_TEST_MODE || '').toLowerCase() === 'true';
 
+/**
+ * Konwertuj relatywne ścieżki zdjęć na pełne URL-e dla Otodom API
+ */
+function normalizeImageUrls(photos) {
+  if (!Array.isArray(photos) || photos.length === 0) return [];
+  
+  const baseUrl = process.env.CLIENT_ORIGIN || 'https://portfel-nieruchomosci.onrender.com';
+  
+  return photos.map((photo) => {
+    if (!photo) return null;
+    const url = String(photo).trim();
+    // Jeśli już jest pełny URL (http/https), zwróć bez zmian
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+    // Jeśli zaczyna się od /uploads, dodaj base URL
+    if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
+      const cleanPath = url.startsWith('/') ? url : `/${url}`;
+      return `${baseUrl}${cleanPath}`;
+    }
+    // W przeciwnym razie zwróć jak jest (może być już pełny URL bez protokołu)
+    return url;
+  }).filter(Boolean);
+}
+
 async function getOtodomAppCredentials() {
   const appCreds = await ApiCredentials.findOne({ platform: 'otodom', userId: null }).lean();
   if (!appCreds?.clientId || !appCreds?.clientSecret) {
@@ -232,6 +257,9 @@ export async function publishOtodomAdvert(apartment, userId) {
     ? OTODOM_TEST_DESCRIPTION
     : (apartment.description || titleRaw);
 
+  // Normalizuj URL-e zdjęć do pełnych URL-i (Otodom wymaga pełnych URL-i)
+  const normalizedImages = normalizeImageUrls(apartment.photos || []);
+
   const advertData = {
     title: title.substring(0, 70), // Max 70 znaków
     description,
@@ -241,7 +269,7 @@ export async function publishOtodomAdvert(apartment, userId) {
       currency: 'PLN',
     },
     location,
-    images: apartment.photos || [],
+    images: normalizedImages,
     contact: {
       // TODO: Pobierz dane kontaktowe z konfiguracji
       name: 'Agencja',
@@ -281,11 +309,28 @@ export async function publishOtodomAdvert(apartment, userId) {
       data: err.response?.data,
       message: err.message,
     });
-    const details =
-      err.response?.data?.message ||
-      err.response?.data?.error_description ||
-      err.response?.data?.error ||
-      err.message;
+    
+    // Wyciągnij czytelny komunikat błędu
+    let details = '';
+    if (err.response?.data) {
+      const data = err.response.data;
+      if (typeof data === 'string') {
+        details = data;
+      } else if (data.message) {
+        details = String(data.message);
+      } else if (data.error_description) {
+        details = String(data.error_description);
+      } else if (data.error) {
+        details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      } else {
+        details = JSON.stringify(data);
+      }
+    } else if (err.message) {
+      details = String(err.message);
+    } else {
+      details = 'Nieznany błąd';
+    }
+    
     throw new Error(`Nie udało się opublikować ogłoszenia na Otodom: ${details}`);
   }
 }
@@ -306,6 +351,9 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
     ? OTODOM_TEST_DESCRIPTION
     : (apartment.description || titleRaw);
 
+  // Normalizuj URL-e zdjęć do pełnych URL-i
+  const normalizedImages = normalizeImageUrls(apartment.photos || []);
+
   const advertData = {
     title: title.substring(0, 70),
     description,
@@ -313,7 +361,7 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
       value: apartment.price,
       currency: 'PLN',
     },
-    images: apartment.photos || [],
+    images: normalizedImages,
   };
 
   try {
@@ -339,11 +387,27 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
       data: err.response?.data,
       message: err.message,
     });
-    const details =
-      err.response?.data?.message ||
-      err.response?.data?.error_description ||
-      err.response?.data?.error ||
-      err.message;
+    
+    let details = '';
+    if (err.response?.data) {
+      const data = err.response.data;
+      if (typeof data === 'string') {
+        details = data;
+      } else if (data.message) {
+        details = String(data.message);
+      } else if (data.error_description) {
+        details = String(data.error_description);
+      } else if (data.error) {
+        details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      } else {
+        details = JSON.stringify(data);
+      }
+    } else if (err.message) {
+      details = String(err.message);
+    } else {
+      details = 'Nieznany błąd';
+    }
+    
     throw new Error(`Nie udało się zaktualizować ogłoszenia na Otodom: ${details}`);
   }
 }
@@ -378,11 +442,27 @@ export async function deleteOtodomAdvert(externalId, userId) {
       data: err.response?.data,
       message: err.message,
     });
-    const details =
-      err.response?.data?.message ||
-      err.response?.data?.error_description ||
-      err.response?.data?.error ||
-      err.message;
+    
+    let details = '';
+    if (err.response?.data) {
+      const data = err.response.data;
+      if (typeof data === 'string') {
+        details = data;
+      } else if (data.message) {
+        details = String(data.message);
+      } else if (data.error_description) {
+        details = String(data.error_description);
+      } else if (data.error) {
+        details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      } else {
+        details = JSON.stringify(data);
+      }
+    } else if (err.message) {
+      details = String(err.message);
+    } else {
+      details = 'Nieznany błąd';
+    }
+    
     throw new Error(`Nie udało się usunąć ogłoszenia z Otodom: ${details}`);
   }
 }

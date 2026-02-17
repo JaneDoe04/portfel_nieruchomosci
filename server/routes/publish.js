@@ -143,7 +143,14 @@ router.post('/:apartmentId/otodom', async (req, res) => {
       advertId: result.advertId,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Błąd publikacji na Otodom.' });
+    console.error('[publish/otodom] Error:', {
+      message: err.message,
+      stack: err.stack,
+      apartmentId: req.params.apartmentId,
+      userId: req.user._id,
+    });
+    const errorMessage = err.message || 'Błąd publikacji na Otodom.';
+    res.status(500).json({ message: errorMessage });
   }
 });
 
