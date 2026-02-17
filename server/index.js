@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import path from "path";
 
 import authRoutes from "./routes/auth.js";
 import apartmentsRoutes from "./routes/apartments.js";
@@ -25,7 +26,13 @@ const allowedOrigin =
 		: "http://localhost:5173";
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+
+// Static serving for uploaded images.
+// On Render: use a persistent disk and set UPLOADS_DIR to a mounted path (e.g. /var/data/uploads).
+const uploadsDir = process.env.UPLOADS_DIR
+	? path.resolve(process.env.UPLOADS_DIR)
+	: path.join(process.cwd(), "uploads");
+app.use("/uploads", express.static(uploadsDir));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/apartments", apartmentsRoutes);
