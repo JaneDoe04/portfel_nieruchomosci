@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, UploadCloud, RefreshCw, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, UploadCloud, RefreshCw, Trash2, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import api from "../../api/axios";
 import StatusBadge from "./StatusBadge";
 
@@ -28,6 +28,8 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 	const [publishing, setPublishing] = useState(false);
 	const [publishError, setPublishError] = useState("");
 	const [publishSuccess, setPublishSuccess] = useState("");
+	const [checkingStatus, setCheckingStatus] = useState(false);
+	const [statusInfo, setStatusInfo] = useState(null);
 
 	const handleSave = async (e) => {
 		e.preventDefault();
@@ -126,6 +128,35 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 			alert(`❌ ${errorMsg}`);
 		} finally {
 			setPublishing(false);
+		}
+	};
+
+	const handleCheckStatus = async () => {
+		if (!apartment.externalIds?.otodom) {
+			setPublishError("Brak ogłoszenia Otodom do sprawdzenia.");
+			return;
+		}
+		setCheckingStatus(true);
+		setPublishError("");
+		setPublishSuccess("");
+		setStatusInfo(null);
+		try {
+			const { data } = await api.get(`/publish/${apartment._id}/otodom/status`);
+			setStatusInfo(data.status);
+			
+			if (data.isTransactionId || data.message) {
+				// To jest transaction_id - webhook jeszcze nie przyszedł
+				setPublishSuccess(data.message || "Ogłoszenie jest w trakcie publikacji. Czekamy na webhook z Otodom.");
+			} else {
+				// To jest object_id - mamy prawdziwy status
+				const statusMsg = `Status: ${data.status?.state?.code || data.status?.last_action_status || 'Nieznany'}`;
+				setPublishSuccess(statusMsg);
+			}
+		} catch (err) {
+			const errorMsg = err.response?.data?.message || "Nie udało się sprawdzić statusu.";
+			setPublishError(errorMsg);
+		} finally {
+			setCheckingStatus(false);
 		}
 	};
 
@@ -286,7 +317,27 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 								<Trash2 className='w-4 h-4' />
 								Usuń
 							</button>
+							{apartment.externalIds?.otodom && (
+								<button
+									type='button'
+									onClick={handleCheckStatus}
+									disabled={checkingStatus || saving}
+									className='inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 text-sm'
+									title='Sprawdź status ogłoszenia na Otodom'
+								>
+									<Info className='w-4 h-4' />
+									{checkingStatus ? "Sprawdzanie..." : "Status"}
+								</button>
+							)}
 						</div>
+						{statusInfo && (
+							<div className='mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200'>
+								<p className='text-xs font-semibold text-blue-800 mb-2'>Szczegóły statusu:</p>
+								<pre className='text-xs text-blue-700 overflow-auto max-h-40'>
+									{JSON.stringify(statusInfo, null, 2)}
+								</pre>
+							</div>
+						)}
 						{publishError && (
 							<div className='mt-3 flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200'>
 								<AlertCircle className='w-4 h-4 text-red-600 flex-shrink-0 mt-0.5' />

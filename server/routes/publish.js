@@ -227,14 +227,58 @@ router.get('/:apartmentId/otodom/status', async (req, res) => {
       return res.status(400).json({ message: 'Mieszkanie nie ma opublikowanego ogłoszenia na Otodom.' });
     }
 
-    // Użyj externalId (może być transaction_id lub object_id)
-    const status = await getOtodomAdvertStatus(externalId, req.user._id);
+    // Sprawdź czy to transaction_id (UUID format) - jeśli tak, webhook jeszcze nie przyszedł
+    const isTransactionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(externalId);
+    
+    if (isTransactionId) {
+      return res.status(200).json({
+        success: true,
+        status: {
+          transaction_id: externalId,
+          last_action_status: 'TO_POST',
+          state: {
+            code: 'TO_POST',
+            message: 'Ogłoszenie jest w trakcie publikacji. Czekamy na webhook z Otodom.',
+          },
+        },
+        externalId,
+        isTransactionId: true,
+        message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Webhook z Otodom jeszcze nie przyszedł. Poczekaj kilka minut i sprawdź ponownie.',
+      });
+    }
 
-    res.json({
-      success: true,
-      status: status.data,
-      externalId,
-    });
+    // Użyj externalId (powinno być object_id z webhooka)
+    try {
+      const status = await getOtodomAdvertStatus(externalId, req.user._id);
+
+      res.json({
+        success: true,
+        status: status.data,
+        externalId,
+        isTransactionId: false,
+      });
+    } catch (err) {
+      // Jeśli błąd "not found", może to być transaction_id mimo że nie pasuje do regex
+      const errorMsg = err.message?.toLowerCase() || '';
+      if (errorMsg.includes('not found') || errorMsg.includes('advert')) {
+        return res.status(200).json({
+          success: true,
+          status: {
+            transaction_id: externalId,
+            last_action_status: 'TO_POST',
+            state: {
+              code: 'TO_POST',
+              message: 'Ogłoszenie jest w trakcie publikacji. Webhook jeszcze nie przyszedł.',
+            },
+          },
+          externalId,
+          isTransactionId: true,
+          message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Webhook z Otodom jeszcze nie przyszedł. Poczekaj kilka minut i sprawdź ponownie.',
+        });
+      }
+      // Inny błąd - przekaż dalej
+      throw err;
+    }
   } catch (err) {
     res.status(500).json({ 
       message: err.message || 'Błąd sprawdzania statusu ogłoszenia na Otodom.',
