@@ -34,14 +34,25 @@ function verifySignature(payload, signature, secret) {
 router.get('/otodom', (req, res) => {
   // Some providers validate callback URL with GET/HEAD.
   // Keep it fast and always return 200.
+  console.log('[webhook/otodom] GET request received (callback validation)');
   res.status(200).send('OK');
 });
 
 router.head('/otodom', (req, res) => {
+  console.log('[webhook/otodom] HEAD request received (callback validation)');
   res.status(200).end();
 });
 
 router.post('/otodom', express.json(), (req, res) => {
+  // Log na samym początku - przed parsowaniem
+  console.log('[webhook/otodom] ========== POST REQUEST RECEIVED ==========');
+  console.log('[webhook/otodom] Timestamp:', new Date().toISOString());
+  console.log('[webhook/otodom] Headers:', {
+    'content-type': req.headers['content-type'],
+    'user-agent': req.headers['user-agent'],
+    'x-signature': req.headers['x-signature'] ? 'present' : 'missing',
+  });
+  
   const signature = req.headers['x-signature'];
   const payload = req.body;
 
@@ -50,10 +61,7 @@ router.post('/otodom', express.json(), (req, res) => {
     hasPayload: !!payload,
     payloadType: typeof payload,
     hasSignature: !!signature,
-    headers: {
-      'content-type': req.headers['content-type'],
-      'user-agent': req.headers['user-agent'],
-    },
+    rawBody: typeof req.body,
   });
 
   if (!payload || typeof payload !== 'object') {
