@@ -323,10 +323,10 @@ export async function publishOtodomAdvert(apartment, userId) {
     images: normalizedImages,
     // Atrybuty z taxonomy (metraż, liczba pokoi itp.)
     attributes: attributes.length > 0 ? attributes : [],
-    // custom_fields: metadane integracji (opcjonalne)
+    // custom_fields: metadane integracji - API wymaga pola 'id'
     custom_fields: {
-      // Możemy dodać id mieszkania jako reference_id dla śledzenia
-      reference_id: apartment._id?.toString() || null,
+      id: apartment._id?.toString() || `apt-${Date.now()}`, // Wymagane przez API
+      reference_id: apartment._id?.toString() || null, // Opcjonalne dla śledzenia
     },
   };
 
