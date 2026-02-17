@@ -49,6 +49,16 @@ const apartmentSchema = new mongoose.Schema(
       trim: true,
       comment: 'Nazwa ulicy (wymagana z city_id dla Otodom API)',
     },
+    lat: {
+      type: Number,
+      default: null,
+      comment: 'Szerokość geograficzna (Otodom/OLX)',
+    },
+    lon: {
+      type: Number,
+      default: null,
+      comment: 'Długość geograficzna (Otodom/OLX)',
+    },
     status: {
       type: String,
       enum: STATUS_ENUM,

@@ -11,6 +11,7 @@ import ApiCredentials from '../../models/ApiCredentials.js';
 
 const OTODOM_API_BASE = 'https://www.otodom.pl/api';
 const OTODOM_AUTH_URL = 'https://www.otodom.pl/api/open/oauth/token';
+const OTODOM_LOCATIONS_BASE = 'https://api.olxgroup.com/locations/v1/urn:site:otodompl';
 
 const OTODOM_TEST_PREFIX = '[qatest-mercury]';
 const OTODOM_TEST_DESCRIPTION =
@@ -22,6 +23,119 @@ function buildTestSafeTitle(rawTitle) {
   const base = (rawTitle || '').trim() || 'Test ogłoszenia';
   if (base.toLowerCase().startsWith(OTODOM_TEST_PREFIX.toLowerCase())) return base;
   return `${OTODOM_TEST_PREFIX} ${base}`;
+}
+
+const cityIdCache = new Map(); // key: city name lower → id number
+
+function parseStreetNameFromAddress(address) {
+  if (!address) return '';
+  const firstPart = String(address).split(',')[0]?.trim() || '';
+  // remove common prefixes and numbers
+  return firstPart
+    .replace(/^(ul\.|al\.|aleja|pl\.|os\.)\s*/i, '')
+    .replace(/\s+\d+[a-zA-Z]?(\s*\/\s*\d+)?\s*$/i, '')
+    .trim();
+}
+
+function parseCityFromAddress(address) {
+  if (!address) return '';
+  const parts = String(address).split(',').map((p) => p.trim()).filter(Boolean);
+  const tail = parts[parts.length - 1] || '';
+  // try to strip postal code like 00-001
+  return tail.replace(/\b\d{2}-\d{3}\b/g, '').trim();
+}
+
+async function resolveCityIdByName(apiKey, cityName) {
+  const name = (cityName || '').trim();
+  if (!name) return null;
+  const key = name.toLowerCase();
+  if (cityIdCache.has(key)) return cityIdCache.get(key);
+
+  const url = `${OTODOM_LOCATIONS_BASE}/cities?search=${encodeURIComponent(name)}&exact=true&no-districts=1&limit=5`;
+  const { data } = await axios.get(url, {
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-API-KEY': apiKey,
+      'User-Agent': 'PortfelNieruchomosci',
+    },
+    timeout: 10000,
+  });
+
+  const first = Array.isArray(data?.data) ? data.data[0] : null;
+  const id = first?.id != null ? Number(first.id) : null;
+  if (id != null && !Number.isNaN(id)) {
+    cityIdCache.set(key, id);
+    return id;
+  }
+  return null;
+}
+
+async function resolveLatLonWithNominatim(address) {
+  const enabled = String(process.env.OTODOM_GEOCODE || '').toLowerCase() === 'true';
+  if (!enabled) return null;
+  if (!address) return null;
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(address)}`;
+  const { data } = await axios.get(url, {
+    headers: {
+      'User-Agent': 'PortfelNieruchomosci/1.0 (otodom integration)',
+    },
+    timeout: 15000,
+  });
+  const first = Array.isArray(data) ? data[0] : null;
+  if (!first?.lat || !first?.lon) return null;
+  return { lat: Number(first.lat), lon: Number(first.lon) };
+}
+
+async function buildOtodomLocation(apartment) {
+  // Defaults (safe fallback)
+  let lat = apartment.lat ?? 52.2297;
+  let lon = apartment.lon ?? 21.0122;
+
+  // street_name: parse from address if not provided
+  const streetName =
+    (apartment.streetName && apartment.streetName.trim()) ||
+    parseStreetNameFromAddress(apartment.address) ||
+    'Świętokrzyska';
+
+  // city_id: if not provided, resolve via OLX Group Locations API using X-API-KEY
+  let cityId = apartment.cityId != null ? Number(apartment.cityId) : null;
+  if (!cityId || Number.isNaN(cityId)) {
+    const appCreds = await ApiCredentials.findOne({ platform: 'otodom', userId: null }).lean();
+    const apiKey = appCreds?.apiKey;
+    if (apiKey) {
+      const cityName = parseCityFromAddress(apartment.address);
+      try {
+        cityId = await resolveCityIdByName(apiKey, cityName);
+      } catch (e) {
+        console.warn('[otodom/location] city resolve failed', { cityName, err: e.message });
+      }
+    }
+  }
+  if (!cityId) cityId = 26; // fallback Warszawa
+
+  // lat/lon optional auto-geocode (disabled by default)
+  if (apartment.lat == null || apartment.lon == null) {
+    try {
+      const geo = await resolveLatLonWithNominatim(apartment.address);
+      if (geo?.lat && geo?.lon) {
+        lat = geo.lat;
+        lon = geo.lon;
+      }
+    } catch (e) {
+      console.warn('[otodom/geocode] failed', e.message);
+    }
+  }
+
+  return {
+    exact: true,
+    lat,
+    lon,
+    custom_fields: {
+      city_id: cityId,
+      street_name: streetName,
+    },
+  };
 }
 
 /**
@@ -86,12 +200,7 @@ export async function getOtodomAccessToken(userId) {
 export async function publishOtodomAdvert(apartment, userId) {
   const accessToken = await getOtodomAccessToken(userId);
 
-  // Lokalizacja: Otodom wymaga lat/lon + custom_fields (city_id, street_name)
-  // https://developer.olxgroup.com/docs/otodom-locations
-  const lat = 52.2297;
-  const lon = 21.0122;
-  const cityId = apartment.cityId != null ? apartment.cityId : 26; // 26 = Warszawa w słowniku
-  const streetName = (apartment.streetName && apartment.streetName.trim()) || 'Świętokrzyska'; // wymagane z city_id
+  const location = await buildOtodomLocation(apartment);
 
   const titleRaw = apartment.title || '';
   const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
@@ -107,15 +216,7 @@ export async function publishOtodomAdvert(apartment, userId) {
       value: apartment.price,
       currency: 'PLN',
     },
-    location: {
-      exact: true,
-      lat,
-      lon,
-      custom_fields: {
-        city_id: cityId,
-        street_name: streetName,
-      },
-    },
+    location,
     images: apartment.photos || [],
     contact: {
       // TODO: Pobierz dane kontaktowe z konfiguracji
