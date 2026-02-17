@@ -286,6 +286,15 @@ export async function publishOtodomAdvert(apartment, userId) {
   }
 
   // OLX Group API wymaga site_urn i category_urn (nie category_id)
+  // Upewnij się, że location.custom_fields są zawsze obecne (wymagane przez Otodom)
+  if (!location.custom_fields || !location.custom_fields.city_id || !location.custom_fields.street_name) {
+    console.warn('[otodom/publish] Location custom_fields missing, adding defaults');
+    location.custom_fields = {
+      city_id: location.custom_fields?.city_id || 26,
+      street_name: location.custom_fields?.street_name || 'Świętokrzyska',
+    };
+  }
+
   const advertData = {
     site_urn: OTODOM_SITE_URN, // urn:site:otodompl
     category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
