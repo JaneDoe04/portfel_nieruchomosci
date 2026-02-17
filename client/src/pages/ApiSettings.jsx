@@ -3,7 +3,7 @@ import { Save, Key, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import api from '../api/axios';
 
 export default function ApiSettings() {
-  const [configs, setConfigs] = useState([]);
+  const [configs, setConfigs] = useState({ appLevel: [], userLevel: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export default function ApiSettings() {
       setConfigs(data);
       
       // Wypełnij formularz istniejącymi danymi (bez secret)
-      data.forEach((config) => {
+      (data?.appLevel || []).forEach((config) => {
         if (config.platform === 'olx' || config.platform === 'otodom') {
           setFormData((prev) => ({
             ...prev,
@@ -107,9 +107,16 @@ export default function ApiSettings() {
     }
   };
 
-  const getConfig = (platform) => {
-    return configs.find((c) => c.platform === platform);
+  const getAppConfig = (platform) => {
+    return (configs?.appLevel || []).find((c) => c.platform === platform);
   };
+
+  const getUserConfig = (platform) => {
+    return (configs?.userLevel || []).find((c) => c.platform === platform);
+  };
+
+  const isConfigured = (platform) => Boolean(getAppConfig(platform)?.isConfigured);
+  const isActive = (platform) => Boolean(getUserConfig(platform)?.isActive);
 
   if (loading) {
     return (
@@ -153,12 +160,12 @@ export default function ApiSettings() {
               <Key className="w-5 h-5 text-orange-600" />
               <h2 className="text-lg font-semibold text-slate-800">OLX</h2>
             </div>
-            {getConfig('olx')?.isActive ? (
+            {isActive('olx') ? (
               <span className="flex items-center gap-2 text-green-600 text-sm">
                 <CheckCircle className="w-4 h-4" />
                 Aktywne
               </span>
-            ) : getConfig('olx')?.isConfigured ? (
+            ) : isConfigured('olx') ? (
               <span className="flex items-center gap-2 text-yellow-600 text-sm">
                 <XCircle className="w-4 h-4" />
                 Wymaga autoryzacji
@@ -206,7 +213,7 @@ export default function ApiSettings() {
                 Zapisz
               </button>
 
-              {getConfig('olx')?.isConfigured && !getConfig('olx')?.isActive && (
+              {isConfigured('olx') && !isActive('olx') && (
                 <button
                   type="button"
                   onClick={() => handleAuthorize('olx')}
@@ -226,12 +233,12 @@ export default function ApiSettings() {
               <Key className="w-5 h-5 text-blue-600" />
               <h2 className="text-lg font-semibold text-slate-800">Otodom</h2>
             </div>
-            {getConfig('otodom')?.isActive ? (
+            {isActive('otodom') ? (
               <span className="flex items-center gap-2 text-green-600 text-sm">
                 <CheckCircle className="w-4 h-4" />
                 Aktywne
               </span>
-            ) : getConfig('otodom')?.isConfigured ? (
+            ) : isConfigured('otodom') ? (
               <span className="flex items-center gap-2 text-yellow-600 text-sm">
                 <XCircle className="w-4 h-4" />
                 Wymaga autoryzacji
@@ -279,7 +286,7 @@ export default function ApiSettings() {
                 Zapisz
               </button>
 
-              {getConfig('otodom')?.isConfigured && !getConfig('otodom')?.isActive && (
+              {isConfigured('otodom') && !isActive('otodom') && (
                 <button
                   type="button"
                   onClick={() => handleAuthorize('otodom')}

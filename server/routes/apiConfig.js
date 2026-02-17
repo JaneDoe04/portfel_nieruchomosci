@@ -38,9 +38,10 @@ router.get('/:platform/callback', async (req, res) => {
     }
 
     const redirectUri = `${req.protocol}://${req.get('host')}/api/api-config/${platform}/callback`;
+    // OLX/Otodom partner auth endpoints use /api/open/oauth/*
     const tokenUrl = platform === 'olx'
-      ? 'https://www.olx.pl/oauth/token'
-      : 'https://www.otodom.pl/oauth/token';
+      ? 'https://www.olx.pl/api/open/oauth/token'
+      : 'https://www.otodom.pl/api/open/oauth/token';
 
     const tokenResponse = await axios.post(tokenUrl, {
       grant_type: 'authorization_code',
@@ -196,12 +197,12 @@ router.post('/:platform/authorize', async (req, res) => {
     // Zapisz userId w state, żeby wiedzieć, dla kogo autoryzujemy (w callback)
     const state = Buffer.from(JSON.stringify({ userId: req.user._id.toString() })).toString('base64');
     
+    const scope = encodeURIComponent('read write');
     let authUrl;
     if (platform === 'olx') {
-      authUrl = `https://www.olx.pl/oauth/authorize?client_id=${appCredentials.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=read write&state=${state}`;
+      authUrl = `https://www.olx.pl/api/open/oauth/authorize?client_id=${encodeURIComponent(appCredentials.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
     } else if (platform === 'otodom') {
-      // Otodom używa tego samego systemu co OLX (OLX Group)
-      authUrl = `https://www.otodom.pl/oauth/authorize?client_id=${appCredentials.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=read write&state=${state}`;
+      authUrl = `https://www.otodom.pl/api/open/oauth/authorize?client_id=${encodeURIComponent(appCredentials.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
     }
 
     res.json({ authUrl });

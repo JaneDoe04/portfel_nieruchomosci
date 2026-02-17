@@ -10,7 +10,7 @@ import axios from 'axios';
 import ApiCredentials from '../../models/ApiCredentials.js';
 
 const OTODOM_API_BASE = 'https://www.otodom.pl/api';
-const OTODOM_AUTH_URL = 'https://www.otodom.pl/oauth/token';
+const OTODOM_AUTH_URL = 'https://www.otodom.pl/api/open/oauth/token';
 
 /**
  * Pobierz lub odśwież access token dla Otodom dla KONKRETNEGO UŻYTKOWNIKA

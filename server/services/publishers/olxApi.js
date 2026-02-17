@@ -9,7 +9,7 @@ import axios from 'axios';
 import ApiCredentials from '../../models/ApiCredentials.js';
 
 const OLX_API_BASE = 'https://www.olx.pl/api';
-const OLX_AUTH_URL = 'https://www.olx.pl/oauth/token';
+const OLX_AUTH_URL = 'https://www.olx.pl/api/open/oauth/token';
 
 /**
  * Pobierz lub odśwież access token dla OLX dla KONKRETNEGO UŻYTKOWNIKA

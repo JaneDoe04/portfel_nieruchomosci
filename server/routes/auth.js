@@ -111,4 +111,36 @@ router.post('/seed', async (req, res) => {
   }
 });
 
+// POST /api/auth/make-admin – podniesienie roli użytkownika do admin (wymaga SEED_SECRET)
+router.post('/make-admin', async (req, res) => {
+  try {
+    const secret = req.body?.secret || req.query?.secret;
+    if (!process.env.SEED_SECRET || secret !== process.env.SEED_SECRET) {
+      return res.status(403).json({ message: 'Brak uprawnień.' });
+    }
+
+    const { login, email, userId } = req.body || {};
+    if (!login && !email && !userId) {
+      return res.status(400).json({ message: 'Podaj login, email lub userId użytkownika do awansu.' });
+    }
+
+    const query = [];
+    if (login) query.push({ login });
+    if (email) query.push({ email });
+    if (userId) query.push({ _id: new mongoose.Types.ObjectId(userId) });
+
+    const user = await User.findOne({ $or: query }).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'Nie znaleziono użytkownika.' });
+    }
+
+    user.role = 'admin';
+    await user.save();
+
+    res.json({ ok: true, message: `OK: użytkownik ${user.login || user.email} ma teraz rolę admin.` });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Błąd make-admin.' });
+  }
+});
+
 export default router;
