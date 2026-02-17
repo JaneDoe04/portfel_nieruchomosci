@@ -166,20 +166,23 @@ async function buildOtodomLocation(apartment) {
     }
   }
 
-  // OLX Group API wymaga prostego obiektu location z lat/lon/exact
-  // custom_fields są opcjonalne i mogą być dodane osobno jeśli API je wspiera
+  // Otodom WYMAGA custom_fields z city_id i street_name (oba razem)
+  // Zgodnie z dokumentacją: "Nazwa ulicy (street_name) powinna być zawsze przesłana wraz z numerem ID miejscowości (city_id)"
+  
+  // Upewnij się, że mamy oba pola (użyj fallbacków jeśli brakuje)
+  const finalCityId = cityId && !Number.isNaN(cityId) ? Number(cityId) : 26; // fallback Warszawa
+  const finalStreetName = (streetName && streetName.trim()) || 'Świętokrzyska'; // fallback
+
+  // OLX Group API wymaga location z lat/lon/exact + custom_fields (oba pola razem)
   const location = {
     exact: true,
     lat,
     lon,
+    custom_fields: {
+      city_id: finalCityId,
+      street_name: finalStreetName,
+    },
   };
-
-  // Dodaj custom_fields jeśli są dostępne (może być wymagane przez Otodom)
-  if (cityId || streetName) {
-    location.custom_fields = {};
-    if (cityId) location.custom_fields.city_id = cityId;
-    if (streetName) location.custom_fields.street_name = streetName;
-  }
 
   return location;
 }
