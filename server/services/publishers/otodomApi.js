@@ -352,6 +352,11 @@ export async function publishOtodomAdvert(apartment, userId) {
       url: advertUrl,
     };
   } catch (err) {
+    // Log pełnego obiektu errors dla debugowania
+    if (err.response?.data?.errors) {
+      console.error('[otodom/publish] Full errors array:', JSON.stringify(err.response.data.errors, null, 2));
+    }
+    
     console.error('Błąd publikacji na Otodom:', {
       status: err.response?.status,
       data: err.response?.data,
@@ -367,9 +372,13 @@ export async function publishOtodomAdvert(apartment, userId) {
       if (Array.isArray(data.errors) && data.errors.length > 0) {
         const errorMessages = data.errors.map((e) => {
           if (typeof e === 'string') return e;
-          if (e?.field && e?.message) return `${e.field}: ${e.message}`;
+          // Pełny obiekt błędu dla lepszego debugowania
+          if (e?.field && e?.message) {
+            return `${e.field}: ${e.message}${e?.value ? ` (value: ${JSON.stringify(e.value)})` : ''}`;
+          }
           if (e?.message) return e.message;
-          return JSON.stringify(e);
+          // Jeśli nie ma field/message, wyświetl cały obiekt
+          return JSON.stringify(e, null, 2);
         });
         details = `Validation errors: ${errorMessages.join('; ')}`;
       } else if (data.message) {
