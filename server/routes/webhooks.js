@@ -45,15 +45,35 @@ router.post('/otodom', express.json(), (req, res) => {
   const signature = req.headers['x-signature'];
   const payload = req.body;
 
+  // Log wszystkich requestów (nawet niepoprawnych) dla debugowania
+  console.log('[webhook/otodom] POST request received:', {
+    hasPayload: !!payload,
+    payloadType: typeof payload,
+    hasSignature: !!signature,
+    headers: {
+      'content-type': req.headers['content-type'],
+      'user-agent': req.headers['user-agent'],
+    },
+  });
+
   if (!payload || typeof payload !== 'object') {
+    console.error('[webhook/otodom] Invalid payload:', payload);
     return res.status(400).send('Invalid payload');
   }
 
   if (WEBHOOK_SECRET && signature) {
     const valid = verifySignature(payload, signature, WEBHOOK_SECRET);
     if (!valid) {
+      console.error('[webhook/otodom] Invalid signature:', {
+        received: signature,
+        hasSecret: !!WEBHOOK_SECRET,
+        payloadKeys: Object.keys(payload),
+      });
       return res.status(401).send('Invalid signature');
     }
+    console.log('[webhook/otodom] Signature verified successfully');
+  } else {
+    console.warn('[webhook/otodom] No signature verification (WEBHOOK_SECRET or signature missing)');
   }
 
   // Process async so we respond within 2 seconds

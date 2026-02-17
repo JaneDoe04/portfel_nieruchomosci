@@ -2,7 +2,7 @@ import express from 'express';
 import Apartment from '../models/Apartment.js';
 import { protect } from '../middleware/auth.js';
 import { publishOlxAdvert, updateOlxAdvert, deleteOlxAdvert } from '../services/publishers/olxApi.js';
-import { publishOtodomAdvert, updateOtodomAdvert, deleteOtodomAdvert } from '../services/publishers/otodomApi.js';
+import { publishOtodomAdvert, updateOtodomAdvert, deleteOtodomAdvert, getOtodomAdvertStatus } from '../services/publishers/otodomApi.js';
 
 const router = express.Router();
 
@@ -207,6 +207,39 @@ router.put('/:apartmentId/otodom', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Błąd aktualizacji ogłoszenia na Otodom.' });
+  }
+});
+
+/**
+ * GET /api/publish/:apartmentId/otodom/status
+ * Sprawdź status ogłoszenia na Otodom
+ */
+router.get('/:apartmentId/otodom/status', async (req, res) => {
+  try {
+    const apartment = await Apartment.findById(req.params.apartmentId);
+    
+    if (!apartment) {
+      return res.status(404).json({ message: 'Mieszkanie nie znalezione.' });
+    }
+
+    const externalId = apartment.externalIds?.otodom;
+    if (!externalId) {
+      return res.status(400).json({ message: 'Mieszkanie nie ma opublikowanego ogłoszenia na Otodom.' });
+    }
+
+    // Użyj externalId (może być transaction_id lub object_id)
+    const status = await getOtodomAdvertStatus(externalId, req.user._id);
+
+    res.json({
+      success: true,
+      status: status.data,
+      externalId,
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      message: err.message || 'Błąd sprawdzania statusu ogłoszenia na Otodom.',
+      error: err.message 
+    });
   }
 });
 

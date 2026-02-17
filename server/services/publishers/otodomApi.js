@@ -500,6 +500,60 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 }
 
 /**
+ * Sprawdź status ogłoszenia na Otodom (metadane)
+ * @param {string} advertId - ID ogłoszenia (może być transaction_id lub object_id)
+ * @param {string|ObjectId} userId - ID użytkownika aplikacji
+ */
+export async function getOtodomAdvertStatus(advertId, userId) {
+  const accessToken = await getOtodomAccessToken(userId);
+  const appCreds = await getOtodomAppCredentials();
+
+  try {
+    const response = await axios.get(
+      `${OTODOM_API_BASE}/${advertId}/meta`, // https://api.olxgroup.com/advert/v1/{advert_id}/meta
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-API-KEY': appCreds.apiKey,
+          Accept: 'application/json',
+          'User-Agent': 'PortfelNieruchomosci',
+        },
+        timeout: 20000,
+      }
+    );
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (err) {
+    console.error('Błąd sprawdzania statusu ogłoszenia Otodom:', {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    });
+    
+    let details = '';
+    if (err.response?.data) {
+      const data = err.response.data;
+      if (typeof data === 'string') {
+        details = data;
+      } else if (data.message) {
+        details = String(data.message);
+      } else {
+        details = JSON.stringify(data);
+      }
+    } else if (err.message) {
+      details = String(err.message);
+    } else {
+      details = 'Nieznany błąd';
+    }
+    
+    throw new Error(`Nie udało się sprawdzić statusu ogłoszenia na Otodom: ${details}`);
+  }
+}
+
+/**
  * Usuń ogłoszenie z Otodom
  * @param {string} externalId - ID ogłoszenia na Otodom
  * @param {string|ObjectId} userId - ID użytkownika aplikacji
