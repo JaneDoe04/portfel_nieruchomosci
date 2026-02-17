@@ -6,10 +6,10 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import Apartment from '../models/Apartment.js';
-import User from '../models/User.js';
 import { sendEmail, createExpiringLeaseEmail } from '../services/email.js';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/portfel-nieruchomosci';
+const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || 'jonyjdjdjdjd@gmail.com';
 
 async function checkExpiringLeases() {
   try {
@@ -35,29 +35,20 @@ async function checkExpiringLeases() {
       console.log(`  - ${apt.title}, ${apt.address}, koniec umowy: ${apt.contractEndDate?.toISOString().slice(0, 10)}`);
     });
 
-    // Pobierz wszystkich użytkowników (manager/admin) do powiadomień
-    const users = await User.find({}).select('email name').lean();
-    if (users.length === 0) {
-      console.log('Brak użytkowników do powiadomień.');
-      process.exit(0);
-      return;
-    }
-
     // Przygotuj email
     const { subject, html, text } = createExpiringLeaseEmail(expiring);
-    const recipientEmails = users.map((u) => u.email).filter(Boolean);
 
-    if (recipientEmails.length === 0) {
-      console.log('Brak adresów email użytkowników.');
+    if (!NOTIFICATION_EMAIL) {
+      console.log('Brak adresu email do powiadomień (NOTIFICATION_EMAIL).');
       process.exit(0);
       return;
     }
 
-    console.log(`Wysyłanie powiadomień do ${recipientEmails.length} użytkowników...`);
+    console.log(`Wysyłanie powiadomienia do ${NOTIFICATION_EMAIL}...`);
 
     // Wyślij email
     const result = await sendEmail({
-      to: recipientEmails,
+      to: NOTIFICATION_EMAIL,
       subject,
       html,
       text,
