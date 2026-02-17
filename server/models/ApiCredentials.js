@@ -16,24 +16,13 @@ const apiCredentialsSchema = new mongoose.Schema(
       enum: ['olx', 'otodom'],
       required: true,
     },
-    // App-level credentials (jeden zestaw dla całej aplikacji)
-    clientId: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    clientSecret: {
-      type: String,
-      required: true,
-      trim: true,
-    },
     // User-level tokens (każdy użytkownik ma swoje)
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null, // null = app-level credentials, ObjectId = user-specific tokens
     },
-    // OAuth 2.0 credentials
+    // OAuth 2.0 app credentials (app-level) – kopiowane też do user-level token records
     clientId: {
       type: String,
       required: true,
@@ -42,6 +31,12 @@ const apiCredentialsSchema = new mongoose.Schema(
     clientSecret: {
       type: String,
       required: true,
+      trim: true,
+    },
+    // OLX Group API Key (wymagany m.in. do /oauth/v1/token dla Real Estate API)
+    apiKey: {
+      type: String,
+      default: null,
       trim: true,
     },
     // OAuth tokens (aktualizowane po autoryzacji użytkownika)

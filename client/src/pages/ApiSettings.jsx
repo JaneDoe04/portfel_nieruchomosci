@@ -10,8 +10,8 @@ export default function ApiSettings() {
   const [success, setSuccess] = useState('');
 
   const [formData, setFormData] = useState({
-    olx: { clientId: '', clientSecret: '' },
-    otodom: { clientId: '', clientSecret: '' },
+    olx: { clientId: '', clientSecret: '', apiKey: '' },
+    otodom: { clientId: '', clientSecret: '', apiKey: '' },
   });
 
   useEffect(() => {
@@ -31,6 +31,7 @@ export default function ApiSettings() {
             [config.platform]: {
               clientId: config.clientId || '',
               clientSecret: '', // Nie pokazujemy secret
+              apiKey: config.apiKey || '',
             },
           }));
         }
@@ -70,6 +71,7 @@ export default function ApiSettings() {
         platform,
         clientId: data.clientId,
         clientSecret: data.clientSecret,
+        apiKey: data.apiKey,
       });
 
       setSuccess(`Konfiguracja ${platform.toUpperCase()} zapisana pomyślnie!`);
@@ -191,6 +193,22 @@ export default function ApiSettings() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
+                API Key (X-API-KEY)
+              </label>
+              <input
+                type="text"
+                value={formData.olx.apiKey}
+                onChange={(e) => handleChange('olx', 'apiKey', e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="API Key (jeśli wymagany)"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Dla Otodom (OLX Group) jest wymagany. Dla OLX PL może nie być.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
                 Client Secret
               </label>
               <input
@@ -260,6 +278,22 @@ export default function ApiSettings() {
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Twój Client ID z Otodom Developer Portal"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                API Key (X-API-KEY) *
+              </label>
+              <input
+                type="text"
+                value={formData.otodom.apiKey}
+                onChange={(e) => handleChange('otodom', 'apiKey', e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="API Key z OLX Group Application Manager"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Otodom autoryzacja (token) wymaga nagłówka <code className="px-1 py-0.5 bg-slate-100 rounded">X-API-KEY</code>.
+              </p>
             </div>
 
             <div>

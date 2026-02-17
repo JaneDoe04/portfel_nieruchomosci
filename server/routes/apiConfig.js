@@ -38,18 +38,37 @@ router.get('/:platform/callback', async (req, res) => {
     }
 
     const redirectUri = `${req.protocol}://${req.get('host')}/api/api-config/${platform}/callback`;
-    // OLX/Otodom partner auth endpoints use /api/open/oauth/*
-    const tokenUrl = platform === 'olx'
-      ? 'https://www.olx.pl/api/open/oauth/token'
-      : 'https://www.otodom.pl/api/open/oauth/token';
 
-    const tokenResponse = await axios.post(tokenUrl, {
-      grant_type: 'authorization_code',
-      code,
-      client_id: appCredentials.clientId,
-      client_secret: appCredentials.clientSecret,
-      redirect_uri: redirectUri,
-    });
+    let tokenResponse;
+    if (platform === 'otodom') {
+      // OLX Group Real Estate OAuth: exchange code via api.olxgroup.com
+      if (!appCredentials.apiKey) {
+        return res.status(400).send('Brak API KEY (X-API-KEY) dla Otodom. Dodaj go w Ustawieniach API.');
+      }
+      const basic = Buffer.from(`${appCredentials.clientId}:${appCredentials.clientSecret}`, 'utf8').toString('base64');
+      tokenResponse = await axios.post(
+        'https://api.olxgroup.com/oauth/v1/token',
+        { grant_type: 'authorization_code', code },
+        {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${basic}`,
+            'X-API-KEY': appCredentials.apiKey,
+            'User-Agent': 'PortfelNieruchomosci',
+          },
+        }
+      );
+    } else {
+      // OLX PL flow (placeholder) – can be adjusted when OLX API access is ready
+      tokenResponse = await axios.post('https://www.olx.pl/api/open/oauth/token', {
+        grant_type: 'authorization_code',
+        code,
+        client_id: appCredentials.clientId,
+        client_secret: appCredentials.clientSecret,
+        redirect_uri: redirectUri,
+      });
+    }
 
     const { access_token, refresh_token, expires_in } = tokenResponse.data;
 
@@ -137,7 +156,7 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ message: 'Tylko administrator może konfigurować app-level credentials.' });
     }
 
-    const { platform, clientId, clientSecret } = req.body;
+    const { platform, clientId, clientSecret, apiKey } = req.body;
 
     if (!platform || !clientId || !clientSecret) {
       return res.status(400).json({ message: 'Platform, clientId i clientSecret są wymagane.' });
@@ -154,6 +173,7 @@ router.post('/', async (req, res) => {
         platform,
         clientId,
         clientSecret,
+        apiKey: apiKey || null,
         userId: null, // App-level
         isConfigured: true,
         isActive: false, // App-level credentials nie mają tokenów
@@ -197,12 +217,13 @@ router.post('/:platform/authorize', async (req, res) => {
     // Zapisz userId w state, żeby wiedzieć, dla kogo autoryzujemy (w callback)
     const state = Buffer.from(JSON.stringify({ userId: req.user._id.toString() })).toString('base64');
     
-    const scope = encodeURIComponent('read write');
     let authUrl;
     if (platform === 'olx') {
+      const scope = encodeURIComponent('read write');
       authUrl = `https://www.olx.pl/api/open/oauth/authorize?client_id=${encodeURIComponent(appCredentials.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
     } else if (platform === 'otodom') {
-      authUrl = `https://www.otodom.pl/api/open/oauth/authorize?client_id=${encodeURIComponent(appCredentials.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
+      // OLX Group Real Estate: authorize on site domain
+      authUrl = `https://www.otodom.pl/pl/crm/authorization/?response_type=code&client_id=${encodeURIComponent(appCredentials.clientId)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
     res.json({ authUrl });

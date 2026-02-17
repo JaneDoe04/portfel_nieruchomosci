@@ -16,7 +16,8 @@ function verifySignature(payload, signature, secret) {
   if (!secret) return false;
   const { object_id, transaction_id } = payload;
   if (!object_id || !transaction_id) return false;
-  const payloadString = `${object_id}${transaction_id}`;
+  // According to OLX Group docs: sign "object_id,transaction_id"
+  const payloadString = `${object_id},${transaction_id}`;
   const expected = crypto.createHmac('sha1', secret).update(payloadString).digest('hex');
   const sigBuf = Buffer.from(signature, 'hex');
   const expBuf = Buffer.from(expected, 'hex');
