@@ -295,6 +295,8 @@ export async function publishOtodomAdvert(apartment, userId) {
     };
   }
 
+  // OLX Group API może wymagać custom_fields również na poziomie głównym payloadu
+  // (nie tylko w location) - dodajemy je tutaj jako kopię z location
   const advertData = {
     site_urn: OTODOM_SITE_URN, // urn:site:otodompl
     category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
@@ -306,6 +308,11 @@ export async function publishOtodomAdvert(apartment, userId) {
     },
     location,
     images: normalizedImages,
+    // Dodaj custom_fields na poziomie głównym (może być wymagane przez API)
+    custom_fields: {
+      city_id: location.custom_fields.city_id,
+      street_name: location.custom_fields.street_name,
+    },
   };
 
   // Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
