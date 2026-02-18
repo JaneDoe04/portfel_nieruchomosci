@@ -430,15 +430,17 @@ router.get('/:apartmentId/otodom/status', async (req, res) => {
               last_action_status: 'TO_POST',
               state: {
                 code: 'TO_POST',
-                message: 'Ogłoszenie jest w trakcie publikacji/moderacji. Transaction_id nie działa do sprawdzania statusu - poczekaj na webhook lub użyj uuid z odpowiedzi publikacji.',
+                message:
+                  'Ogłoszenie jest w trakcie publikacji/moderacji. Transaction_id nie działa do sprawdzania statusu - poczekaj na webhook lub użyj uuid z odpowiedzi publikacji.',
               },
             },
             externalId,
             isTransactionId: true,
-            message: 'Ogłoszenie jest w trakcie publikacji. Transaction_id nie działa do sprawdzania statusu - sprawdź czy uuid został zapisany w mieszkaniu.',
+            message:
+              'Ogłoszenie jest w trakcie publikacji. Transaction_id nie działa do sprawdzania statusu - sprawdź czy uuid został zapisany w mieszkaniu.',
           });
         }
-        
+
         return res.status(200).json({
           success: true,
           status: {
@@ -446,45 +448,18 @@ router.get('/:apartmentId/otodom/status', async (req, res) => {
             last_action_status: 'UNKNOWN',
             state: {
               code: 'NOT_FOUND',
-              message: 'Ogłoszenie nie znalezione przez API. Może być jeszcze w trakcie przetwarzania.',
+              message:
+                'Ogłoszenie nie znalezione przez API. Może być jeszcze w trakcie przetwarzania.',
             },
           },
           externalId,
           isTransactionId: false,
-          message: 'Ogłoszenie nie znalezione przez API. Może być jeszcze w trakcie przetwarzania lub zostało usunięte.',
+          message:
+            'Ogłoszenie nie znalezione przez API. Może być jeszcze w trakcie przetwarzania lub zostało usunięte.',
         });
       }
       // Inny błąd - przekaż dalej
       throw apiError;
-    }
-
-      res.json({
-        success: true,
-        status: status.data,
-        externalId,
-        isTransactionId: false,
-      });
-    } catch (err) {
-      // Jeśli błąd "not found", może to być transaction_id mimo że nie pasuje do regex
-      const errorMsg = err.message?.toLowerCase() || '';
-      if (errorMsg.includes('not found') || errorMsg.includes('advert')) {
-        return res.status(200).json({
-          success: true,
-          status: {
-            transaction_id: externalId,
-            last_action_status: 'TO_POST',
-            state: {
-              code: 'TO_POST',
-              message: 'Ogłoszenie jest w trakcie publikacji. Webhook jeszcze nie przyszedł.',
-            },
-          },
-          externalId,
-          isTransactionId: true,
-          message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Webhook z Otodom jeszcze nie przyszedł. Poczekaj kilka minut i sprawdź ponownie.',
-        });
-      }
-      // Inny błąd - przekaż dalej
-      throw err;
     }
   } catch (err) {
     res.status(500).json({ 
