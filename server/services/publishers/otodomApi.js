@@ -264,7 +264,38 @@ export async function publishOtodomAdvert(apartment, userId) {
   const location = await buildOtodomLocation(apartment);
 
   const titleRaw = apartment.title || '';
-  const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
+  let title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
+  
+  // Walidacja tytułu zgodnie z wymaganiami OLX Group API:
+  // - Min 5 znaków, max 70 znaków
+  // - No uppercase (tylko pierwsza litera może być wielka, reszta małe)
+  // - Jeśli za krótki, użyj fallback
+  if (title.length < 5) {
+    title = titleRaw.length >= 5 ? titleRaw : (titleRaw || 'Mieszkanie do wynajęcia');
+    // Jeśli to tryb testowy, dodaj prefix ponownie
+    if (isTestMode()) {
+      title = buildTestSafeTitle(title);
+    }
+  }
+  // Obetnij do max 70 znaków
+  title = title.substring(0, 70);
+  // Upewnij się że ma minimum 5 znaków po obcięciu
+  if (title.length < 5) {
+    throw new Error('Tytuł ogłoszenia musi mieć minimum 5 znaków.');
+  }
+  // OLX Group API wymaga: "no uppercase" - tylko pierwsza litera może być wielka
+  // UWAGA: Prefix [qatest-mercury] może zawierać wielkie litery - zostawiamy go jak jest
+  // Konwertuj resztę tytułu (po prefiksie) na format: pierwsza litera wielka, reszta małe
+  if (isTestMode() && title.startsWith('[qatest-mercury]')) {
+    const prefix = '[qatest-mercury]';
+    const restOfTitle = title.substring(prefix.length).trim();
+    if (restOfTitle.length > 0) {
+      title = prefix + ' ' + restOfTitle.charAt(0).toUpperCase() + restOfTitle.slice(1).toLowerCase();
+    }
+  } else {
+    // Dla normalnych tytułów: pierwsza litera wielka, reszta małe
+    title = title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
+  }
   
   // Description: min 50 znaków (wymagane przez OLX Group API)
   let description = isTestMode()
@@ -313,7 +344,7 @@ export async function publishOtodomAdvert(apartment, userId) {
   const advertData = {
     site_urn: OTODOM_SITE_URN, // urn:site:otodompl
     category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
-    title: title.substring(0, 70), // Max 70 znaków, min 5
+    title, // Już zwalidowany: 5-70 znaków, no uppercase
     description,
     price: {
       value: Number(apartment.price), // Musi być liczbą
