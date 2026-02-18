@@ -35,7 +35,13 @@ router.get('/otodom', (req, res) => {
   // Some providers validate callback URL with GET/HEAD.
   // Keep it fast and always return 200.
   console.log('[webhook/otodom] GET request received (callback validation)');
-  res.status(200).send('OK');
+  console.log('[webhook/otodom] GET query params:', req.query);
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'Webhook endpoint is accessible',
+    timestamp: new Date().toISOString(),
+    webhookSecretConfigured: !!WEBHOOK_SECRET
+  });
 });
 
 router.head('/otodom', (req, res) => {
@@ -47,11 +53,16 @@ router.post('/otodom', express.json(), (req, res) => {
   // Log na samym początku - przed parsowaniem
   console.log('[webhook/otodom] ========== POST REQUEST RECEIVED ==========');
   console.log('[webhook/otodom] Timestamp:', new Date().toISOString());
+  console.log('[webhook/otodom] URL:', req.url);
+  console.log('[webhook/otodom] Method:', req.method);
   console.log('[webhook/otodom] Headers:', {
     'content-type': req.headers['content-type'],
     'user-agent': req.headers['user-agent'],
     'x-signature': req.headers['x-signature'] ? 'present' : 'missing',
+    'host': req.headers['host'],
   });
+  console.log('[webhook/otodom] Raw body type:', typeof req.body);
+  console.log('[webhook/otodom] Raw body:', req.body);
   
   const signature = req.headers['x-signature'];
   const payload = req.body;
@@ -69,19 +80,31 @@ router.post('/otodom', express.json(), (req, res) => {
     return res.status(400).send('Invalid payload');
   }
 
+  // Log informacji o webhook secret
+  console.log('[webhook/otodom] Webhook secret configured:', !!WEBHOOK_SECRET);
+  console.log('[webhook/otodom] Signature present:', !!signature);
+  
   if (WEBHOOK_SECRET && signature) {
     const valid = verifySignature(payload, signature, WEBHOOK_SECRET);
     if (!valid) {
-      console.error('[webhook/otodom] Invalid signature:', {
+      console.error('[webhook/otodom] ❌ Invalid signature:', {
         received: signature,
         hasSecret: !!WEBHOOK_SECRET,
         payloadKeys: Object.keys(payload),
+        object_id: payload?.object_id,
+        transaction_id: payload?.transaction_id,
       });
       return res.status(401).send('Invalid signature');
     }
-    console.log('[webhook/otodom] Signature verified successfully');
+    console.log('[webhook/otodom] ✅ Signature verified successfully');
   } else {
-    console.warn('[webhook/otodom] No signature verification (WEBHOOK_SECRET or signature missing)');
+    if (!WEBHOOK_SECRET) {
+      console.warn('[webhook/otodom] ⚠️ WEBHOOK_SECRET not set in environment variables!');
+    }
+    if (!signature) {
+      console.warn('[webhook/otodom] ⚠️ x-signature header missing from request');
+    }
+    console.warn('[webhook/otodom] ⚠️ No signature verification (WEBHOOK_SECRET or signature missing)');
   }
 
   // Process async so we respond within 2 seconds
@@ -134,8 +157,17 @@ router.post('/otodom', express.json(), (req, res) => {
             const oldValue = apartment.externalIds?.otodom;
             apartment.externalIds = apartment.externalIds || {};
             apartment.externalIds.otodom = object_id; // Zapisujemy object_id, nie URL
+            
+            // Zapisz też URL jeśli jest dostępny w webhookData
+            if (webhookData?.url) {
+              apartment.externalIds.otodomUrl = webhookData.url;
+            }
+            
             await apartment.save();
-            console.log('[webhook/otodom] ✅ Updated apartment:', apartment._id, '| Old:', oldValue, '| New object_id:', object_id);
+            console.log('[webhook/otodom] ✅ Updated apartment:', apartment._id.toString());
+            console.log('[webhook/otodom] ✅ Old externalId:', oldValue);
+            console.log('[webhook/otodom] ✅ New object_id:', object_id);
+            console.log('[webhook/otodom] ✅ Advert URL:', webhookData?.url || 'not provided');
           } else {
             // Jeśli nie znaleziono po transaction_id, spróbuj znaleźć po custom_fields.reference_id
             // (jeśli webhook zawiera te dane)

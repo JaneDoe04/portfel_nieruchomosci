@@ -134,8 +134,13 @@ router.post('/:apartmentId/otodom', async (req, res) => {
     // Zaktualizuj externalIds w mieszkaniu
     // Zapisujemy transaction_id jako tymczasowy identyfikator - prawdziwy URL przyjdzie przez webhook
     apartment.externalIds = apartment.externalIds || {};
-    apartment.externalIds.otodom = result.transactionId || result.url; // Tymczasowo transaction_id, webhook zaktualizuje na prawdziwy URL
+    const transactionId = result.transactionId || result.url;
+    apartment.externalIds.otodom = transactionId; // Tymczasowo transaction_id, webhook zaktualizuje na prawdziwy object_id
     await apartment.save();
+    
+    console.log('[publish/otodom] ✅ Saved transaction_id:', transactionId, 'for apartment:', apartment._id.toString());
+    console.log('[publish/otodom] ⏳ Waiting for webhook with event_type: advert_posted_success');
+    console.log('[publish/otodom] 📋 Webhook should update apartment with object_id when advert is published');
 
     res.json({
       success: true,
