@@ -165,7 +165,7 @@ router.get('/:platform/callback', async (req, res) => {
   }
 });
 
-// Wszystkie poniższe endpointy wymagają autoryzacji
+// Wszystkie poniższe endpointy wymagają autoryzacji dfd
 router.use(protect);
 
 /**
