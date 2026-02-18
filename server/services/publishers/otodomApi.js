@@ -355,15 +355,22 @@ export async function publishOtodomAdvert(apartment, userId) {
 
     // OLX Group API zwraca transaction_id (nie id) - ogłoszenie jest publikowane asynchronicznie
     const transactionId = response.data.transaction_id || response.data.id;
+    // W response.data.data.uuid jest prawdziwe ID ogłoszenia (object_id) - używamy go jeśli jest dostępny
+    const objectId = response.data?.data?.uuid || null;
     // URL może być w response.data.url lub trzeba będzie poczekać na webhook
-    const advertUrl = response.data.url || `https://www.otodom.pl/pl/oferta/${transactionId}`;
+    const advertUrl = response.data.url || (objectId ? `https://www.otodom.pl/pl/oferta/${objectId}` : `https://www.otodom.pl/pl/oferta/${transactionId}`);
 
-    console.log('[otodom/publish] Success:', { transactionId, responseData: response.data });
+    console.log('[otodom/publish] Success:', { 
+      transactionId, 
+      objectId: objectId || 'not provided',
+      responseData: response.data 
+    });
 
     return {
       success: true,
-      advertId: transactionId, // Używamy transaction_id jako tymczasowego ID
+      advertId: objectId || transactionId, // Używamy object_id jeśli jest dostępny, w przeciwnym razie transaction_id
       transactionId,
+      objectId, // Prawdziwe ID ogłoszenia jeśli jest dostępne
       url: advertUrl,
     };
   } catch (err) {

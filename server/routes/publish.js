@@ -36,6 +36,8 @@ async function checkOtodomStatusWithRetry(apartmentId, transactionId, userId, ma
         }
         
         // Spróbuj sprawdzić status przez API używając transaction_id
+        // UWAGA: transaction_id może nie działać do sprawdzania statusu - może potrzebować object_id
+        // Ale spróbujmy najpierw transaction_id, a jeśli nie zadziała, będziemy musieli poczekać na webhook
         try {
           const statusResult = await getOtodomAdvertStatus(transactionId, userId);
           const statusData = statusResult.data;
@@ -205,19 +207,30 @@ router.post('/:apartmentId/otodom', async (req, res) => {
     const result = await publishOtodomAdvert(apartment, req.user._id);
 
     // Zaktualizuj externalIds w mieszkaniu
-    // Zapisujemy transaction_id jako tymczasowy identyfikator - prawdziwy URL przyjdzie przez webhook
+    // Jeśli mamy objectId z odpowiedzi API, używamy go od razu (nie czekamy na webhook)
     apartment.externalIds = apartment.externalIds || {};
-    const transactionId = result.transactionId || result.url;
-    apartment.externalIds.otodom = transactionId; // Tymczasowo transaction_id, webhook zaktualizuje na prawdziwy object_id
+    const objectId = result.objectId || result.transactionId || result.url;
+    apartment.externalIds.otodom = objectId;
+    
+    // Zapisz URL jeśli jest dostępny
+    if (result.url) {
+      apartment.externalIds.otodomUrl = result.url;
+    }
+    
     await apartment.save();
     
-    console.log('[publish/otodom] ✅ Saved transaction_id:', transactionId, 'for apartment:', apartment._id.toString());
-    console.log('[publish/otodom] ⏳ Waiting for webhook with event_type: advert_posted_success');
-    console.log('[publish/otodom] 📋 Webhook should update apartment with object_id when advert is published');
-    
-    // Automatyczne sprawdzanie statusu przez API (fallback jeśli webhook nie przyjdzie)
-    // Próbujemy sprawdzić status po 10, 30 i 60 sekundach
-    checkOtodomStatusWithRetry(apartment._id.toString(), transactionId, req.user._id, 3);
+    if (result.objectId) {
+      console.log('[publish/otodom] ✅ Saved object_id directly from API:', objectId, 'for apartment:', apartment._id.toString());
+      console.log('[publish/otodom] ✅ No need to wait for webhook - object_id already available');
+    } else {
+      console.log('[publish/otodom] ✅ Saved transaction_id:', result.transactionId, 'for apartment:', apartment._id.toString());
+      console.log('[publish/otodom] ⏳ Waiting for webhook with event_type: advert_posted_success');
+      console.log('[publish/otodom] 📋 Webhook should update apartment with object_id when advert is published');
+      
+      // Automatyczne sprawdzanie statusu przez API (fallback jeśli webhook nie przyjdzie)
+      // Próbujemy sprawdzić status po 10, 30 i 60 sekundach
+      checkOtodomStatusWithRetry(apartment._id.toString(), result.transactionId, req.user._id, 3);
+    }
 
     res.json({
       success: true,
