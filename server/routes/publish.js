@@ -231,13 +231,17 @@ router.post('/:apartmentId/otodom', async (req, res) => {
       console.log('[publish/otodom] ⚠️ Webhook will notify when advert is published (event_type: advert_posted_success)');
       
       // Sprawdź status po 5, 30 i 60 sekundach
+      const apartmentId = apartment._id.toString();
+      const objectIdToCheck = result.objectId;
+      const userId = req.user._id;
+      
       [5000, 30000, 60000].forEach((delay, index) => {
         setTimeout(async () => {
           try {
-            const apartment = await Apartment.findById(apartment._id);
+            const apartment = await Apartment.findById(apartmentId);
             if (!apartment) return;
             
-            const statusResult = await getOtodomAdvertStatus(result.objectId, req.user._id);
+            const statusResult = await getOtodomAdvertStatus(objectIdToCheck, userId);
             const statusData = statusResult.data;
             
             console.log(`[publish/otodom] 📊 Status check ${index + 1}/3:`, {
