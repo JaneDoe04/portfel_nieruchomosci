@@ -6,6 +6,79 @@ import { publishOtodomAdvert, updateOtodomAdvert, deleteOtodomAdvert, getOtodomA
 
 const router = express.Router();
 
+/**
+ * Automatyczne sprawdzanie statusu ogłoszenia przez API z retry
+ * Fallback jeśli webhook nie przyjdzie
+ */
+async function checkOtodomStatusWithRetry(apartmentId, transactionId, userId, maxAttempts = 3) {
+  const delays = [10000, 30000, 60000]; // 10s, 30s, 60s
+  
+  for (let attempt = 0; attempt < maxAttempts && attempt < delays.length; attempt++) {
+    const delay = delays[attempt];
+    
+    setTimeout(async () => {
+      try {
+        console.log(`[publish/otodom] 🔍 Checking status via API (attempt ${attempt + 1}/${maxAttempts}) for transaction_id: ${transactionId}`);
+        
+        // Sprawdź czy mieszkanie nadal ma transaction_id (jeśli webhook już przyszedł, będzie object_id)
+        const apartment = await Apartment.findById(apartmentId);
+        if (!apartment) {
+          console.log('[publish/otodom] Apartment not found, stopping status check');
+          return;
+        }
+        
+        const currentExternalId = apartment.externalIds?.otodom;
+        const isStillTransactionId = currentExternalId === transactionId;
+        
+        if (!isStillTransactionId) {
+          console.log('[publish/otodom] ✅ Apartment already updated (webhook came or manual update), stopping status check');
+          return;
+        }
+        
+        // Spróbuj sprawdzić status przez API używając transaction_id
+        try {
+          const statusResult = await getOtodomAdvertStatus(transactionId, userId);
+          const statusData = statusResult.data;
+          
+          // Jeśli mamy object_id w odpowiedzi, zaktualizuj mieszkanie
+          if (statusData?.uuid || statusData?.object_id) {
+            const objectId = statusData.uuid || statusData.object_id;
+            const oldValue = apartment.externalIds?.otodom;
+            
+            apartment.externalIds = apartment.externalIds || {};
+            apartment.externalIds.otodom = objectId;
+            
+            // Zapisz URL jeśli jest dostępny
+            if (statusData?.url) {
+              apartment.externalIds.otodomUrl = statusData.url;
+            }
+            
+            await apartment.save();
+            
+            console.log('[publish/otodom] ✅ Status check successful - updated apartment via API');
+            console.log('[publish/otodom] ✅ Old externalId:', oldValue);
+            console.log('[publish/otodom] ✅ New object_id:', objectId);
+            console.log('[publish/otodom] ✅ Advert URL:', statusData?.url || 'not provided');
+            return; // Sukces, przestań próbować
+          } else {
+            console.log('[publish/otodom] ⏳ Status check: advert still processing, last_action_status:', statusData?.last_action_status);
+          }
+        } catch (apiError) {
+          // Jeśli błąd "not found", ogłoszenie może jeszcze być w trakcie publikacji
+          const errorMsg = apiError.message?.toLowerCase() || '';
+          if (errorMsg.includes('not found') || errorMsg.includes('advert')) {
+            console.log('[publish/otodom] ⏳ Status check: advert not found yet (still processing), will retry');
+          } else {
+            console.error('[publish/otodom] ❌ Status check API error:', apiError.message);
+          }
+        }
+      } catch (err) {
+        console.error('[publish/otodom] ❌ Error in status check retry:', err.message);
+      }
+    }, delay);
+  }
+}
+
 // Wszystkie endpointy wymagają autoryzacji
 router.use(protect);
 
@@ -141,6 +214,10 @@ router.post('/:apartmentId/otodom', async (req, res) => {
     console.log('[publish/otodom] ✅ Saved transaction_id:', transactionId, 'for apartment:', apartment._id.toString());
     console.log('[publish/otodom] ⏳ Waiting for webhook with event_type: advert_posted_success');
     console.log('[publish/otodom] 📋 Webhook should update apartment with object_id when advert is published');
+    
+    // Automatyczne sprawdzanie statusu przez API (fallback jeśli webhook nie przyjdzie)
+    // Próbujemy sprawdzić status po 10, 30 i 60 sekundach
+    checkOtodomStatusWithRetry(apartment._id.toString(), transactionId, req.user._id, 3);
 
     res.json({
       success: true,
@@ -232,24 +309,72 @@ router.get('/:apartmentId/otodom/status', async (req, res) => {
       return res.status(400).json({ message: 'Mieszkanie nie ma opublikowanego ogłoszenia na Otodom.' });
     }
 
-    // Sprawdź czy to transaction_id (UUID format) - jeśli tak, webhook jeszcze nie przyszedł
+    // Sprawdź czy to transaction_id (UUID format) - jeśli tak, spróbuj sprawdzić przez API
     const isTransactionId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(externalId);
     
     if (isTransactionId) {
-      return res.status(200).json({
-        success: true,
-        status: {
-          transaction_id: externalId,
-          last_action_status: 'TO_POST',
-          state: {
-            code: 'TO_POST',
-            message: 'Ogłoszenie jest w trakcie publikacji. Czekamy na webhook z Otodom.',
-          },
-        },
-        externalId,
-        isTransactionId: true,
-        message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Webhook z Otodom jeszcze nie przyszedł. Poczekaj kilka minut i sprawdź ponownie.',
-      });
+      // Spróbuj sprawdzić status przez API używając transaction_id
+      try {
+        const statusResult = await getOtodomAdvertStatus(externalId, req.user._id);
+        const statusData = statusResult.data;
+        
+        // Jeśli mamy object_id w odpowiedzi, zaktualizuj mieszkanie
+        if (statusData?.uuid || statusData?.object_id) {
+          const objectId = statusData.uuid || statusData.object_id;
+          apartment.externalIds = apartment.externalIds || {};
+          apartment.externalIds.otodom = objectId;
+          
+          if (statusData?.url) {
+            apartment.externalIds.otodomUrl = statusData.url;
+          }
+          
+          await apartment.save();
+          
+          console.log('[publish/otodom/status] ✅ Updated apartment via API check:', {
+            apartmentId: apartment._id.toString(),
+            oldTransactionId: externalId,
+            newObjectId: objectId
+          });
+          
+          return res.json({
+            success: true,
+            status: statusData,
+            externalId: objectId,
+            isTransactionId: false,
+            message: 'Status sprawdzony przez API - mieszkanie zaktualizowane.',
+          });
+        }
+        
+        // Jeśli jeszcze nie ma object_id, ale mamy status
+        return res.json({
+          success: true,
+          status: statusData,
+          externalId,
+          isTransactionId: true,
+          message: 'Ogłoszenie jest w trakcie publikacji. Status sprawdzony przez API.',
+        });
+      } catch (apiError) {
+        // Jeśli błąd "not found", ogłoszenie może jeszcze być w trakcie publikacji
+        const errorMsg = apiError.message?.toLowerCase() || '';
+        if (errorMsg.includes('not found') || errorMsg.includes('advert')) {
+          return res.status(200).json({
+            success: true,
+            status: {
+              transaction_id: externalId,
+              last_action_status: 'TO_POST',
+              state: {
+                code: 'TO_POST',
+                message: 'Ogłoszenie jest w trakcie publikacji. Webhook z Otodom jeszcze nie przyszedł.',
+              },
+            },
+            externalId,
+            isTransactionId: true,
+            message: 'Ogłoszenie jest jeszcze w trakcie publikacji. Spróbuj ponownie za chwilę.',
+          });
+        }
+        // Inny błąd - przekaż dalej
+        throw apiError;
+      }
     }
 
     // Użyj externalId (powinno być object_id z webhooka)
