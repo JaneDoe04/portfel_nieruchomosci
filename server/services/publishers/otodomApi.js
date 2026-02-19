@@ -360,16 +360,16 @@ export async function publishOtodomAdvert(apartment, userId) {
   
   // Walidacja i mapowanie na URN
   if (numberOfRooms != null && numberOfRooms >= 1 && numberOfRooms <= 10) {
-    // Dla 1-10 użyj urn:concept:1, urn:concept:2, itd.
+    // Taksonomia: attribute urn = urn:concept:number-of-rooms, value = urn:concept:1..10
     attributes.push({
-      urn: `urn:concept:${numberOfRooms}`,
-      value: String(numberOfRooms),
+      urn: 'urn:concept:number-of-rooms',
+      value: `urn:concept:${numberOfRooms}`,
     });
   } else if (numberOfRooms != null && numberOfRooms > 10) {
-    // Dla więcej niż 10 użyj urn:concept:more
+    // Taksonomia: value = urn:concept:more
     attributes.push({
-      urn: 'urn:concept:more',
-      value: '10+',
+      urn: 'urn:concept:number-of-rooms',
+      value: 'urn:concept:more',
     });
   } else {
     // Liczba pokoi jest wymagana - rzuć błąd zamiast używać domyślnej wartości
