@@ -15,6 +15,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     price: '',
     description: '',
     area: '',
+    numberOfRooms: '',
     status: 'WOLNE', // status i data końca umowy będziemy edytować gdzie indziej
     contractEndDate: '',
     images: [],
@@ -33,6 +34,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         price: apartment.price ?? '',
         description: apartment.description || '',
         area: apartment.area ?? '',
+        numberOfRooms: apartment.numberOfRooms ?? '',
         status: apartment.status || 'WOLNE',
         contractEndDate: apartment.contractEndDate
           ? apartment.contractEndDate.slice(0, 10)
@@ -129,12 +131,17 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     setError('');
     const price = Number(form.price);
     const area = Number(form.area);
+    const numberOfRooms = form.numberOfRooms ? Number(form.numberOfRooms) : null;
     if (!form.title.trim() || !form.address.trim()) {
       setError('Tytuł i adres są wymagane.');
       return;
     }
     if (isNaN(price) || price < 0 || isNaN(area) || area < 0) {
       setError('Cena i metraż muszą być liczbami nieujemnymi.');
+      return;
+    }
+    if (numberOfRooms !== null && (isNaN(numberOfRooms) || numberOfRooms < 1 || numberOfRooms > 10)) {
+      setError('Liczba pokoi musi być liczbą od 1 do 10.');
       return;
     }
     setSaving(true);
@@ -145,6 +152,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         price,
         description: form.description.trim(),
         area,
+        numberOfRooms: numberOfRooms || undefined,
         // status i contractEndDate celowo NIE wysyłamy z tego formularza –
         // będą zarządzane z panelu głównego
         photos: form.images,
@@ -206,7 +214,7 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
                 placeholder="ul. Przykładowa 1, 00-001 Warszawa"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cena (zł/mies.) *</label>
                 <input
@@ -229,6 +237,20 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
                   min="0"
                   step="0.01"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Liczba pokoi *</label>
+                <input
+                  type="number"
+                  name="numberOfRooms"
+                  value={form.numberOfRooms}
+                  onChange={handleChange}
+                  min="1"
+                  max="10"
+                  step="1"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="np. 2"
                 />
               </div>
             </div>

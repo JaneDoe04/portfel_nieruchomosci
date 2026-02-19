@@ -38,6 +38,13 @@ const apartmentSchema = new mongoose.Schema(
       min: 0,
       comment: 'Metraż w m²',
     },
+    numberOfRooms: {
+      type: Number,
+      default: null,
+      min: 1,
+      max: 10,
+      comment: 'Liczba pokoi (wymagana dla Otodom API)',
+    },
     cityId: {
       type: Number,
       default: null,

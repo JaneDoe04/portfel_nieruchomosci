@@ -333,13 +333,55 @@ export async function publishOtodomAdvert(apartment, userId) {
   // Buduj tablicę atrybutów z taxonomy
   const attributes = [];
   
-  // Dodaj metraż jeśli jest dostępny (wymagany atrybut dla apartments-for-rent)
+  // 1. Metraż - WYMAGANY dla apartments-for-rent
   if (apartment.area != null && apartment.area > 0) {
     attributes.push({
-      urn: 'urn:concept:net-area-m2', // Używamy 'urn' nie 'code'
+      urn: 'urn:concept:net-area-m2',
       value: String(apartment.area),
     });
+  } else {
+    throw new Error('Metraż (area) jest wymagany dla publikacji ogłoszenia na Otodom.');
   }
+  
+  // 2. Liczba pokoi - WYMAGANY dla apartments-for-rent
+  // Mapuj liczbę pokoi na odpowiedni URN zgodnie z taksonomią
+  let numberOfRooms = apartment.numberOfRooms != null ? Number(apartment.numberOfRooms) : null;
+  
+  // Jeśli brak liczby pokoi, spróbuj wyciągnąć z tytułu
+  // Przykład: "Mieszkanie 3-pokojowe" -> 3
+  if (!numberOfRooms || isNaN(numberOfRooms)) {
+    const titleMatch = apartment.title?.match(/(\d+)[\s-]*pokoj/i);
+    const extractedRooms = titleMatch ? parseInt(titleMatch[1], 10) : null;
+    if (extractedRooms && extractedRooms >= 1 && extractedRooms <= 10) {
+      numberOfRooms = extractedRooms;
+      console.log('[otodom/publish] Extracted number of rooms from title:', extractedRooms);
+    }
+  }
+  
+  // Walidacja i mapowanie na URN
+  if (numberOfRooms != null && numberOfRooms >= 1 && numberOfRooms <= 10) {
+    // Dla 1-10 użyj urn:concept:1, urn:concept:2, itd.
+    attributes.push({
+      urn: `urn:concept:${numberOfRooms}`,
+      value: String(numberOfRooms),
+    });
+  } else if (numberOfRooms != null && numberOfRooms > 10) {
+    // Dla więcej niż 10 użyj urn:concept:more
+    attributes.push({
+      urn: 'urn:concept:more',
+      value: '10+',
+    });
+  } else {
+    // Liczba pokoi jest wymagana - rzuć błąd zamiast używać domyślnej wartości
+    throw new Error('Liczba pokoi (numberOfRooms) jest wymagana dla publikacji ogłoszenia na Otodom. Dodaj pole "Liczba pokoi" w formularzu mieszkania lub upewnij się, że tytuł zawiera informację o liczbie pokoi (np. "Mieszkanie 3-pokojowe").');
+  }
+  
+  // 3. Rynek (market) - WYMAGANY dla apartments-for-rent
+  // Domyślnie używamy "secondary" (rynek wtórny)
+  attributes.push({
+    urn: 'urn:concept:market',
+    value: 'urn:concept:secondary', // primary lub secondary
+  });
 
   const advertData = {
     site_urn: OTODOM_SITE_URN, // urn:site:otodompl
