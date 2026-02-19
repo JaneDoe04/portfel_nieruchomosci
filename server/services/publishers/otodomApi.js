@@ -435,7 +435,7 @@ function buildOtodomAttributes(apartment) {
 			value: String(apartment.rentCharges),
 		});
 	}
-	
+
 	if (apartment.deposit != null && apartment.deposit > 0) {
 		// Najbardziej prawdopodobne URN-y dla kaucji
 		attributes.push({
@@ -563,14 +563,14 @@ export async function publishOtodomAdvert(apartment, userId) {
 		value: Number(apartment.price), // Musi być liczbą
 		currency: "PLN",
 	};
-	
+
 	// Dodaj czynsz i kaucję do obiektu price (jeśli API to obsługuje)
 	// Otodom może mieć te pola jako dodatkowe właściwości obiektu price
 	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
 		priceObject.service_charge = Number(apartment.rentCharges);
 		priceObject.additional_charges = Number(apartment.rentCharges);
 	}
-	
+
 	if (apartment.deposit != null && apartment.deposit > 0) {
 		priceObject.deposit = Number(apartment.deposit);
 		priceObject.security_deposit = Number(apartment.deposit);
@@ -739,12 +739,12 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 		value: apartment.price,
 		currency: "PLN",
 	};
-	
+
 	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
 		priceObject.service_charge = Number(apartment.rentCharges);
 		priceObject.additional_charges = Number(apartment.rentCharges);
 	}
-	
+
 	if (apartment.deposit != null && apartment.deposit > 0) {
 		priceObject.deposit = Number(apartment.deposit);
 		priceObject.security_deposit = Number(apartment.deposit);
