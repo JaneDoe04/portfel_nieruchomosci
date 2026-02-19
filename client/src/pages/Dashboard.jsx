@@ -219,8 +219,24 @@ export default function Dashboard() {
           apartment={selected}
           onClose={() => setSelected(null)}
           onUpdated={() => {
+            // Zamknij modal i odśwież dane po zapisaniu zmian (przycisk "Zapisz zmiany")
             setSelected(null);
             fetchApartments();
+          }}
+          onRefresh={() => {
+            // Tylko odśwież dane bez zamykania modala (dla automatycznego zapisu)
+            fetchApartments().then(() => {
+              // Po odświeżeniu, zaktualizuj selected z najnowszymi danymi
+              api.get(`/apartments/${selected._id}`).then(({ data }) => {
+                setSelected(data);
+                
+                // Wyślij event do innych komponentów (np. ApartmentList) żeby odświeżyły dane
+                // Używamy custom event żeby komunikować się między komponentami
+                window.dispatchEvent(new CustomEvent('apartmentUpdated', { 
+                  detail: { apartmentId: data._id, apartment: data } 
+                }));
+              });
+            });
           }}
         />
       )}

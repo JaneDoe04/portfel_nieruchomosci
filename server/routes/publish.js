@@ -441,11 +441,23 @@ router.post("/:apartmentId/otodom", async (req, res) => {
  */
 router.put("/:apartmentId/otodom", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
+		// WAŻNE: Pobierz mieszkanie z bazy PRZED aktualizacją, żeby mieć najnowsze dane (w tym availableFrom)
+		// Używamy .exec() żeby mieć pewność że dane są świeże z bazy
+		const apartment = await Apartment.findById(req.params.apartmentId).exec();
 
 		if (!apartment) {
 			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
 		}
+
+		// Loguj dane mieszkania przed aktualizacją (dla debugowania)
+		console.log("[publish/otodom/update] Apartment data before update:", {
+			_id: apartment._id.toString(),
+			availableFrom: apartment.availableFrom,
+			availableFromType: typeof apartment.availableFrom,
+			availableFromRaw: apartment.availableFrom,
+			availableFromString: apartment.availableFrom ? String(apartment.availableFrom) : null,
+			availableFromISO: apartment.availableFrom ? new Date(apartment.availableFrom).toISOString().split("T")[0] : null,
+		});
 
 		const externalId = apartment.externalIds?.otodom;
 		if (!externalId) {
@@ -469,6 +481,23 @@ router.put("/:apartmentId/otodom", async (req, res) => {
 		// UUID może być zarówno transaction_id jak i object_id z webhooka
 		// Spróbujmy zaktualizować - jeśli to transaction_id, API zwróci błąd
 		// Jeśli to object_id, operacja się powiedzie
+		
+		// WAŻNE: Przed aktualizacją odśwież mieszkanie z bazy jeszcze raz,
+		// żeby mieć pewność że mamy najnowsze dane (w tym availableFrom)
+		// To jest szczególnie ważne jeśli mieszkanie było aktualizowane tuż przed kliknięciem "Aktualizuj"
+		const freshApartment = await Apartment.findById(req.params.apartmentId).exec();
+		if (freshApartment) {
+			// Użyj świeżych danych z bazy
+			Object.assign(apartment, {
+				availableFrom: freshApartment.availableFrom,
+				// Możemy też zaktualizować inne pola jeśli potrzeba
+			});
+			console.log("[publish/otodom/update] Refreshed apartment data:", {
+				availableFrom: apartment.availableFrom,
+				freshAvailableFrom: freshApartment.availableFrom,
+			});
+		}
+		
 		try {
 			await updateOtodomAdvert(advertId, apartment, req.user._id);
 		} catch (err) {

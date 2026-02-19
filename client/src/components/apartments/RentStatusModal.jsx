@@ -18,7 +18,7 @@ const getMainPhotoUrl = (apt) => {
 	return `${API_BASE}${raw}`;
 };
 
-export default function RentStatusModal({ apartment, onClose, onUpdated }) {
+export default function RentStatusModal({ apartment, onClose, onUpdated, onRefresh }) {
 	const [status, setStatus] = useState(apartment.status || "WOLNE");
 	const [contractEndDate, setContractEndDate] = useState(
 		apartment.contractEndDate ? apartment.contractEndDate.slice(0, 10) : ""
@@ -288,20 +288,29 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 								value={availableFrom}
 								onChange={async (e) => {
 									const newDate = e.target.value;
-									setAvailableFrom(newDate);
+									const previousDate = availableFrom; // Zapisz poprzednią wartość
+									setAvailableFrom(newDate); // Najpierw zaktualizuj UI
+									
 									// Automatycznie zapisz datę bez czekania na "Zapisz zmiany"
 									// To jest ważne dla publikacji - data musi być dostępna od razu
 									try {
-										await api.put(`/apartments/${apartment._id}`, {
+										console.log("[RentStatusModal] Zapisuję availableFrom:", newDate || null);
+										const response = await api.put(`/apartments/${apartment._id}`, {
 											availableFrom: newDate || null,
 										});
-										// Odśwież dane mieszkania po zapisaniu
-										onUpdated?.();
+										console.log("[RentStatusModal] ✅ Data dostępności zapisana:", response.data);
+										
+										// Odśwież dane mieszkania w tle (bez zamykania modala)
+										// Używamy onRefresh zamiast onUpdated żeby nie zamykać modala
+										if (onRefresh) {
+											onRefresh();
+										}
 									} catch (err) {
-										console.error("Błąd zapisu daty dostępności:", err);
+										console.error("[RentStatusModal] ❌ Błąd zapisu daty dostępności:", err);
+										console.error("[RentStatusModal] Response:", err.response?.data);
 										// Wróć do poprzedniej wartości przy błędzie
-										setAvailableFrom(apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : "");
-										alert("Nie udało się zapisać daty dostępności. Spróbuj ponownie.");
+										setAvailableFrom(previousDate);
+										alert(`Nie udało się zapisać daty dostępności: ${err.response?.data?.message || err.message}`);
 									}
 								}}
 								className='w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm'

@@ -8,7 +8,7 @@ const STATUS_OPTIONS = [
   { value: 'REMANENT', label: 'Remanent' },
 ];
 
-export default function ApartmentForm({ apartment = null, onSave, onClose }) {
+export default function ApartmentForm({ apartment = null, onSave, onClose, onApartmentUpdated }) {
   const [form, setForm] = useState({
     title: '',
     street: '',
@@ -93,6 +93,11 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
           : '',
         images: Array.isArray(apartment.photos) ? apartment.photos : [],
       });
+      
+      // Powiadom parent component że dane mieszkania zostały załadowane/zaktualizowane
+      if (onApartmentUpdated) {
+        onApartmentUpdated(apartment);
+      }
     }
   }, [apartment]);
 

@@ -560,14 +560,34 @@ function buildOtodomAttributes(apartment) {
 
 	// 7. Dostępne od (free-from) - OPCJONALNE
 	if (apartment.availableFrom) {
-		const availableFromDate = new Date(apartment.availableFrom);
+		let availableFromDate;
+		
+		// Obsługa różnych formatów daty
+		if (apartment.availableFrom instanceof Date) {
+			availableFromDate = apartment.availableFrom;
+		} else if (typeof apartment.availableFrom === 'string') {
+			// Jeśli to string, spróbuj sparsować
+			availableFromDate = new Date(apartment.availableFrom);
+		} else {
+			availableFromDate = new Date(apartment.availableFrom);
+		}
+		
 		if (!isNaN(availableFromDate.getTime())) {
 			const formattedDate = availableFromDate.toISOString().split("T")[0];
+			console.log("[otodom/buildAttributes] Adding availableFrom:", {
+				raw: apartment.availableFrom,
+				parsed: availableFromDate,
+				formatted: formattedDate,
+			});
 			attributes.push({
 				urn: "urn:concept:free-from",
 				value: formattedDate,
 			});
+		} else {
+			console.warn("[otodom/buildAttributes] Invalid availableFrom date:", apartment.availableFrom);
 		}
+	} else {
+		console.log("[otodom/buildAttributes] No availableFrom set for apartment:", apartment._id);
 	}
 
 	// 8. Winda (extras -> lift) - OPCJONALNE
@@ -920,7 +940,9 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 
 	// Log payload przed wysłaniem (dla debugowania)
 	console.log("[otodom/update] Payload:", JSON.stringify(advertData, null, 2));
-	console.log("[otodom/update] AvailableFrom attribute:", attributes.find(attr => attr.urn === "urn:concept:free-from"));
+	const availableFromAttr = attributes.find(attr => attr.urn === "urn:concept:free-from");
+	console.log("[otodom/update] AvailableFrom attribute:", availableFromAttr);
+	console.log("[otodom/update] All attributes:", attributes.map(attr => ({ urn: attr.urn, value: attr.value })));
 
 	try {
 		await axios.put(

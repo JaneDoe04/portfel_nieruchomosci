@@ -31,9 +31,28 @@ export default function ApartmentList() {
 		}
 	};
 
-	useEffect(() => {
-		fetchApartments();
-	}, []);
+  useEffect(() => {
+    fetchApartments();
+    
+    // Nasłuchuj na eventy aktualizacji mieszkania z innych komponentów (np. RentStatusModal)
+    const handleApartmentUpdated = (event) => {
+      const { apartmentId, apartment } = event.detail;
+      
+      // Jeśli formularz jest otwarty dla tego mieszkania, zaktualizuj editingApartment
+      if (editingApartment && editingApartment._id === apartmentId) {
+        setEditingApartment(apartment);
+      }
+      
+      // Odśwież listę mieszkań
+      fetchApartments();
+    };
+    
+    window.addEventListener('apartmentUpdated', handleApartmentUpdated);
+    
+    return () => {
+      window.removeEventListener('apartmentUpdated', handleApartmentUpdated);
+    };
+  }, [editingApartment]);
 
 	const handleSave = async (payload) => {
 		if (editingApartment) {
@@ -248,6 +267,13 @@ export default function ApartmentList() {
 					onClose={() => {
 						setModalOpen(false);
 						setEditingApartment(null);
+					}}
+					onApartmentUpdated={(updatedApartment) => {
+						// Gdy mieszkanie zostało zaktualizowane z zewnątrz (np. z RentStatusModal),
+						// zaktualizuj editingApartment żeby formularz pokazywał najnowsze dane
+						if (editingApartment && updatedApartment._id === editingApartment._id) {
+							setEditingApartment(updatedApartment);
+						}
 					}}
 				/>
 			)}
