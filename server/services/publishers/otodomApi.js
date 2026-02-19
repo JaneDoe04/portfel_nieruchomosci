@@ -1,190 +1,213 @@
 /**
  * Otodom API integration service.
  * Obsługuje OAuth 2.0 autoryzację i publikację ogłoszeń przez Otodom API.
- * 
+ *
  * Otodom używa OLX Group API (ten sam system co OLX, ale inne endpointy).
  * Dokumentacja: https://developer.olxgroup.com/
  */
 
-import axios from 'axios';
-import ApiCredentials from '../../models/ApiCredentials.js';
+import axios from "axios";
+import ApiCredentials from "../../models/ApiCredentials.js";
 
 // Otodom używa OLX Group API (nie własnego API na otodom.pl)
-const OTODOM_API_BASE = 'https://api.olxgroup.com/advert/v1';
-const OTODOM_OAUTH_TOKEN_URL = 'https://api.olxgroup.com/oauth/v1/token';
-const OTODOM_LOCATIONS_BASE = 'https://api.olxgroup.com/locations/v1/urn:site:otodompl';
-const OTODOM_SITE_URN = 'urn:site:otodompl'; // Site URN dla Otodom
+const OTODOM_API_BASE = "https://api.olxgroup.com/advert/v1";
+const OTODOM_OAUTH_TOKEN_URL = "https://api.olxgroup.com/oauth/v1/token";
+const OTODOM_LOCATIONS_BASE =
+	"https://api.olxgroup.com/locations/v1/urn:site:otodompl";
+const OTODOM_SITE_URN = "urn:site:otodompl"; // Site URN dla Otodom
 
-const OTODOM_TEST_PREFIX = '[qatest-mercury]';
+const OTODOM_TEST_PREFIX = "[qatest-mercury]";
 const OTODOM_TEST_DESCRIPTION =
-  'Czasami musimy dodać takie ogłoszenie, żeby zweryfikować działanie niektórych funkcji systemu. Liczymy na Twoją wyrozumiałość  Radzimy skorzystać ponownie z naszej wyszukiwarki ofert.<br/><br/> Powodzenia w dalszych poszukiwaniach!';
+	"Czasami musimy dodać takie ogłoszenie, żeby zweryfikować działanie niektórych funkcji systemu. Liczymy na Twoją wyrozumiałość  Radzimy skorzystać ponownie z naszej wyszukiwarki ofert.<br/><br/> Powodzenia w dalszych poszukiwaniach!";
 
-const isTestMode = () => String(process.env.OTODOM_TEST_MODE || '').toLowerCase() === 'true';
+const isTestMode = () =>
+	String(process.env.OTODOM_TEST_MODE || "").toLowerCase() === "true";
 
 /**
  * Konwertuj relatywne ścieżki zdjęć na pełne URL-e dla Otodom API
  * OLX Group API wymaga tablicy obiektów z właściwością 'url'
  */
 function normalizeImageUrls(photos) {
-  if (!Array.isArray(photos) || photos.length === 0) return [];
-  
-  const baseUrl = process.env.CLIENT_ORIGIN || 'https://portfel-nieruchomosci.onrender.com';
-  
-  return photos.map((photo) => {
-    if (!photo) return null;
-    let url = String(photo).trim();
-    // Jeśli już jest pełny URL (http/https), zwróć bez zmian
-    if (/^https?:\/\//i.test(url)) {
-      return { url };
-    }
-    // Jeśli zaczyna się od /uploads, dodaj base URL
-    if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
-      const cleanPath = url.startsWith('/') ? url : `/${url}`;
-      url = `${baseUrl}${cleanPath}`;
-    }
-    // Zwróć jako obiekt z właściwością 'url' (wymagane przez OLX Group API)
-    return { url };
-  }).filter(Boolean);
+	if (!Array.isArray(photos) || photos.length === 0) return [];
+
+	const baseUrl =
+		process.env.CLIENT_ORIGIN || "https://portfel-nieruchomosci.onrender.com";
+
+	return photos
+		.map((photo) => {
+			if (!photo) return null;
+			let url = String(photo).trim();
+			// Jeśli już jest pełny URL (http/https), zwróć bez zmian
+			if (/^https?:\/\//i.test(url)) {
+				return { url };
+			}
+			// Jeśli zaczyna się od /uploads, dodaj base URL
+			if (url.startsWith("/uploads/") || url.startsWith("uploads/")) {
+				const cleanPath = url.startsWith("/") ? url : `/${url}`;
+				url = `${baseUrl}${cleanPath}`;
+			}
+			// Zwróć jako obiekt z właściwością 'url' (wymagane przez OLX Group API)
+			return { url };
+		})
+		.filter(Boolean);
 }
 
 async function getOtodomAppCredentials() {
-  const appCreds = await ApiCredentials.findOne({ platform: 'otodom', userId: null }).lean();
-  if (!appCreds?.clientId || !appCreds?.clientSecret) {
-    throw new Error('Brak app-level credentials dla Otodom (clientId/clientSecret). Uzupełnij w Ustawieniach API.');
-  }
-  if (!appCreds?.apiKey) {
-    throw new Error('Brak API KEY (X-API-KEY) dla Otodom. Uzupełnij w Ustawieniach API.');
-  }
-  return appCreds;
+	const appCreds = await ApiCredentials.findOne({
+		platform: "otodom",
+		userId: null,
+	}).lean();
+	if (!appCreds?.clientId || !appCreds?.clientSecret) {
+		throw new Error(
+			"Brak app-level credentials dla Otodom (clientId/clientSecret). Uzupełnij w Ustawieniach API.",
+		);
+	}
+	if (!appCreds?.apiKey) {
+		throw new Error(
+			"Brak API KEY (X-API-KEY) dla Otodom. Uzupełnij w Ustawieniach API.",
+		);
+	}
+	return appCreds;
 }
 
 function buildTestSafeTitle(rawTitle) {
-  const base = (rawTitle || '').trim() || 'Test ogłoszenia';
-  if (base.toLowerCase().startsWith(OTODOM_TEST_PREFIX.toLowerCase())) return base;
-  return `${OTODOM_TEST_PREFIX} ${base}`;
+	const base = (rawTitle || "").trim() || "Test ogłoszenia";
+	if (base.toLowerCase().startsWith(OTODOM_TEST_PREFIX.toLowerCase()))
+		return base;
+	return `${OTODOM_TEST_PREFIX} ${base}`;
 }
 
 const cityIdCache = new Map(); // key: city name lower → id number
 
 function parseStreetNameFromAddress(address) {
-  if (!address) return '';
-  const firstPart = String(address).split(',')[0]?.trim() || '';
-  // remove common prefixes and numbers
-  return firstPart
-    .replace(/^(ul\.|al\.|aleja|pl\.|os\.)\s*/i, '')
-    .replace(/\s+\d+[a-zA-Z]?(\s*\/\s*\d+)?\s*$/i, '')
-    .trim();
+	if (!address) return "";
+	const firstPart = String(address).split(",")[0]?.trim() || "";
+	// remove common prefixes and numbers
+	return firstPart
+		.replace(/^(ul\.|al\.|aleja|pl\.|os\.)\s*/i, "")
+		.replace(/\s+\d+[a-zA-Z]?(\s*\/\s*\d+)?\s*$/i, "")
+		.trim();
 }
 
 function parseCityFromAddress(address) {
-  if (!address) return '';
-  const parts = String(address).split(',').map((p) => p.trim()).filter(Boolean);
-  const tail = parts[parts.length - 1] || '';
-  // try to strip postal code like 00-001
-  return tail.replace(/\b\d{2}-\d{3}\b/g, '').trim();
+	if (!address) return "";
+	const parts = String(address)
+		.split(",")
+		.map((p) => p.trim())
+		.filter(Boolean);
+	const tail = parts[parts.length - 1] || "";
+	// try to strip postal code like 00-001
+	return tail.replace(/\b\d{2}-\d{3}\b/g, "").trim();
 }
 
 async function resolveCityIdByName(apiKey, cityName) {
-  const name = (cityName || '').trim();
-  if (!name) return null;
-  const key = name.toLowerCase();
-  if (cityIdCache.has(key)) return cityIdCache.get(key);
+	const name = (cityName || "").trim();
+	if (!name) return null;
+	const key = name.toLowerCase();
+	if (cityIdCache.has(key)) return cityIdCache.get(key);
 
-  const url = `${OTODOM_LOCATIONS_BASE}/cities?search=${encodeURIComponent(name)}&exact=true&no-districts=1&limit=5`;
-  const { data } = await axios.get(url, {
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-API-KEY': apiKey,
-      'User-Agent': 'PortfelNieruchomosci',
-    },
-    timeout: 10000,
-  });
+	const url = `${OTODOM_LOCATIONS_BASE}/cities?search=${encodeURIComponent(name)}&exact=true&no-districts=1&limit=5`;
+	const { data } = await axios.get(url, {
+		headers: {
+			Accept: "application/json",
+			"Content-Type": "application/json",
+			"X-API-KEY": apiKey,
+			"User-Agent": "PortfelNieruchomosci",
+		},
+		timeout: 10000,
+	});
 
-  const first = Array.isArray(data?.data) ? data.data[0] : null;
-  const id = first?.id != null ? Number(first.id) : null;
-  if (id != null && !Number.isNaN(id)) {
-    cityIdCache.set(key, id);
-    return id;
-  }
-  return null;
+	const first = Array.isArray(data?.data) ? data.data[0] : null;
+	const id = first?.id != null ? Number(first.id) : null;
+	if (id != null && !Number.isNaN(id)) {
+		cityIdCache.set(key, id);
+		return id;
+	}
+	return null;
 }
 
 async function resolveLatLonWithNominatim(address) {
-  const enabled = String(process.env.OTODOM_GEOCODE || '').toLowerCase() === 'true';
-  if (!enabled) return null;
-  if (!address) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(address)}`;
-  const { data } = await axios.get(url, {
-    headers: {
-      'User-Agent': 'PortfelNieruchomosci/1.0 (otodom integration)',
-    },
-    timeout: 15000,
-  });
-  const first = Array.isArray(data) ? data[0] : null;
-  if (!first?.lat || !first?.lon) return null;
-  return { lat: Number(first.lat), lon: Number(first.lon) };
+	const enabled =
+		String(process.env.OTODOM_GEOCODE || "").toLowerCase() === "true";
+	if (!enabled) return null;
+	if (!address) return null;
+	const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(address)}`;
+	const { data } = await axios.get(url, {
+		headers: {
+			"User-Agent": "PortfelNieruchomosci/1.0 (otodom integration)",
+		},
+		timeout: 15000,
+	});
+	const first = Array.isArray(data) ? data[0] : null;
+	if (!first?.lat || !first?.lon) return null;
+	return { lat: Number(first.lat), lon: Number(first.lon) };
 }
 
 async function buildOtodomLocation(apartment) {
-  // Defaults (safe fallback)
-  let lat = apartment.lat ?? 52.2297;
-  let lon = apartment.lon ?? 21.0122;
+	// Defaults (safe fallback)
+	let lat = apartment.lat ?? 52.2297;
+	let lon = apartment.lon ?? 21.0122;
 
-  // street_name: parse from address if not provided
-  const streetName =
-    (apartment.streetName && apartment.streetName.trim()) ||
-    parseStreetNameFromAddress(apartment.address) ||
-    'Świętokrzyska';
+	// street_name: parse from address if not provided
+	const streetName =
+		(apartment.streetName && apartment.streetName.trim()) ||
+		parseStreetNameFromAddress(apartment.address) ||
+		"Świętokrzyska";
 
-  // city_id: if not provided, resolve via OLX Group Locations API using X-API-KEY
-  let cityId = apartment.cityId != null ? Number(apartment.cityId) : null;
-  if (!cityId || Number.isNaN(cityId)) {
-    const appCreds = await ApiCredentials.findOne({ platform: 'otodom', userId: null }).lean();
-    const apiKey = appCreds?.apiKey;
-    if (apiKey) {
-      const cityName = parseCityFromAddress(apartment.address);
-      try {
-        cityId = await resolveCityIdByName(apiKey, cityName);
-      } catch (e) {
-        console.warn('[otodom/location] city resolve failed', { cityName, err: e.message });
-      }
-    }
-  }
-  if (!cityId) cityId = 26; // fallback Warszawa
+	// city_id: if not provided, resolve via OLX Group Locations API using X-API-KEY
+	let cityId = apartment.cityId != null ? Number(apartment.cityId) : null;
+	if (!cityId || Number.isNaN(cityId)) {
+		const appCreds = await ApiCredentials.findOne({
+			platform: "otodom",
+			userId: null,
+		}).lean();
+		const apiKey = appCreds?.apiKey;
+		if (apiKey) {
+			const cityName = parseCityFromAddress(apartment.address);
+			try {
+				cityId = await resolveCityIdByName(apiKey, cityName);
+			} catch (e) {
+				console.warn("[otodom/location] city resolve failed", {
+					cityName,
+					err: e.message,
+				});
+			}
+		}
+	}
+	if (!cityId) cityId = 26; // fallback Warszawa
 
-  // lat/lon optional auto-geocode (disabled by default)
-  if (apartment.lat == null || apartment.lon == null) {
-    try {
-      const geo = await resolveLatLonWithNominatim(apartment.address);
-      if (geo?.lat && geo?.lon) {
-        lat = geo.lat;
-        lon = geo.lon;
-      }
-    } catch (e) {
-      console.warn('[otodom/geocode] failed', e.message);
-    }
-  }
+	// lat/lon optional auto-geocode (disabled by default)
+	if (apartment.lat == null || apartment.lon == null) {
+		try {
+			const geo = await resolveLatLonWithNominatim(apartment.address);
+			if (geo?.lat && geo?.lon) {
+				lat = geo.lat;
+				lon = geo.lon;
+			}
+		} catch (e) {
+			console.warn("[otodom/geocode] failed", e.message);
+		}
+	}
 
-  // Otodom WYMAGA custom_fields z city_id i street_name (oba razem)
-  // Zgodnie z dokumentacją: "Nazwa ulicy (street_name) powinna być zawsze przesłana wraz z numerem ID miejscowości (city_id)"
-  
-  // Upewnij się, że mamy oba pola (użyj fallbacków jeśli brakuje)
-  const finalCityId = cityId && !Number.isNaN(cityId) ? Number(cityId) : 26; // fallback Warszawa
-  const finalStreetName = (streetName && streetName.trim()) || 'Świętokrzyska'; // fallback
+	// Otodom WYMAGA custom_fields z city_id i street_name (oba razem)
+	// Zgodnie z dokumentacją: "Nazwa ulicy (street_name) powinna być zawsze przesłana wraz z numerem ID miejscowości (city_id)"
 
-  // OLX Group API wymaga location z lat/lon/exact + custom_fields (oba pola razem)
-  const location = {
-    exact: true,
-    lat,
-    lon,
-    custom_fields: {
-      city_id: finalCityId,
-      street_name: finalStreetName,
-    },
-  };
+	// Upewnij się, że mamy oba pola (użyj fallbacków jeśli brakuje)
+	const finalCityId = cityId && !Number.isNaN(cityId) ? Number(cityId) : 26; // fallback Warszawa
+	const finalStreetName = (streetName && streetName.trim()) || "Świętokrzyska"; // fallback
 
-  return location;
+	// OLX Group API wymaga location z lat/lon/exact + custom_fields (oba pola razem)
+	const location = {
+		exact: true,
+		lat,
+		lon,
+		custom_fields: {
+			city_id: finalCityId,
+			street_name: finalStreetName,
+		},
+	};
+
+	return location;
 }
 
 /**
@@ -192,63 +215,85 @@ async function buildOtodomLocation(apartment) {
  * @param {string|ObjectId} userId - ID użytkownika aplikacji
  */
 export async function getOtodomAccessToken(userId) {
-  if (!userId) {
-    throw new Error('UserId jest wymagany do pobrania tokenu Otodom.');
-  }
+	if (!userId) {
+		throw new Error("UserId jest wymagany do pobrania tokenu Otodom.");
+	}
 
-  // Pobierz user-level credentials (zawierają tokeny użytkownika)
-  const credentials = await ApiCredentials.findOne({ platform: 'otodom', userId });
-  
-  if (!credentials || !credentials.isConfigured) {
-    throw new Error('Otodom API nie jest skonfigurowane dla tego użytkownika. Wymagana autoryzacja OAuth.');
-  }
+	// Pobierz user-level credentials (zawierają tokeny użytkownika)
+	const credentials = await ApiCredentials.findOne({
+		platform: "otodom",
+		userId,
+	});
 
-  if (!credentials.isActive) {
-    throw new Error('Otodom API nie jest aktywne dla tego użytkownika. Wymagana autoryzacja OAuth.');
-  }
+	if (!credentials || !credentials.isConfigured) {
+		throw new Error(
+			"Otodom API nie jest skonfigurowane dla tego użytkownika. Wymagana autoryzacja OAuth.",
+		);
+	}
 
-  // Jeśli token jest ważny, zwróć go
-  if (credentials.accessToken && credentials.tokenExpiresAt && credentials.tokenExpiresAt > new Date()) {
-    return credentials.accessToken;
-  }
+	if (!credentials.isActive) {
+		throw new Error(
+			"Otodom API nie jest aktywne dla tego użytkownika. Wymagana autoryzacja OAuth.",
+		);
+	}
 
-  // Jeśli mamy refresh token, użyj go do odświeżenia
-  if (credentials.refreshToken) {
-    try {
-      // Refresh token przez OLX Group OAuth
-      const appCreds = await getOtodomAppCredentials();
-      const basic = Buffer.from(`${appCreds.clientId}:${appCreds.clientSecret}`, 'utf8').toString('base64');
-      const response = await axios.post(
-        OTODOM_OAUTH_TOKEN_URL,
-        { grant_type: 'refresh_token', refresh_token: credentials.refreshToken },
-        {
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${basic}`,
-            'X-API-KEY': appCreds.apiKey,
-            'User-Agent': 'PortfelNieruchomosci',
-          },
-          timeout: 15000,
-        }
-      );
+	// Jeśli token jest ważny, zwróć go
+	if (
+		credentials.accessToken &&
+		credentials.tokenExpiresAt &&
+		credentials.tokenExpiresAt > new Date()
+	) {
+		return credentials.accessToken;
+	}
 
-      const { access_token, refresh_token, expires_in } = response.data;
-      
-      // Zaktualizuj credentials
-      credentials.accessToken = access_token;
-      if (refresh_token) credentials.refreshToken = refresh_token;
-      credentials.tokenExpiresAt = new Date(Date.now() + expires_in * 1000);
-      await credentials.save();
+	// Jeśli mamy refresh token, użyj go do odświeżenia
+	if (credentials.refreshToken) {
+		try {
+			// Refresh token przez OLX Group OAuth
+			const appCreds = await getOtodomAppCredentials();
+			const basic = Buffer.from(
+				`${appCreds.clientId}:${appCreds.clientSecret}`,
+				"utf8",
+			).toString("base64");
+			const response = await axios.post(
+				OTODOM_OAUTH_TOKEN_URL,
+				{
+					grant_type: "refresh_token",
+					refresh_token: credentials.refreshToken,
+				},
+				{
+					headers: {
+						Accept: "application/json",
+						"Content-Type": "application/json",
+						Authorization: `Basic ${basic}`,
+						"X-API-KEY": appCreds.apiKey,
+						"User-Agent": "PortfelNieruchomosci",
+					},
+					timeout: 15000,
+				},
+			);
 
-      return access_token;
-    } catch (err) {
-      console.error('Błąd odświeżania tokenu Otodom:', err.response?.data || err.message);
-      throw new Error('Nie udało się odświeżyć tokenu Otodom. Wymagana ponowna autoryzacja.');
-    }
-  }
+			const { access_token, refresh_token, expires_in } = response.data;
 
-  throw new Error('Brak ważnego tokenu Otodom. Wymagana autoryzacja OAuth.');
+			// Zaktualizuj credentials
+			credentials.accessToken = access_token;
+			if (refresh_token) credentials.refreshToken = refresh_token;
+			credentials.tokenExpiresAt = new Date(Date.now() + expires_in * 1000);
+			await credentials.save();
+
+			return access_token;
+		} catch (err) {
+			console.error(
+				"Błąd odświeżania tokenu Otodom:",
+				err.response?.data || err.message,
+			);
+			throw new Error(
+				"Nie udało się odświeżyć tokenu Otodom. Wymagana ponowna autoryzacja.",
+			);
+		}
+	}
+
+	throw new Error("Brak ważnego tokenu Otodom. Wymagana autoryzacja OAuth.");
 }
 
 /**
@@ -258,248 +303,280 @@ export async function getOtodomAccessToken(userId) {
  * @returns {Promise<Object>} - Odpowiedź z API zawierająca ID ogłoszenia i link
  */
 export async function publishOtodomAdvert(apartment, userId) {
-  const accessToken = await getOtodomAccessToken(userId);
-  const appCreds = await getOtodomAppCredentials();
+	const accessToken = await getOtodomAccessToken(userId);
+	const appCreds = await getOtodomAppCredentials();
 
-  const location = await buildOtodomLocation(apartment);
+	const location = await buildOtodomLocation(apartment);
 
-  const titleRaw = apartment.title || '';
-  // Zawsze dodajemy prefix [qatest-mercury] automatycznie (używamy konta testowego)
-  // Użytkownik nie musi tego wpisywać w formularzu
-  let title = buildTestSafeTitle(titleRaw);
-  
-  // Walidacja tytułu zgodnie z wymaganiami OLX Group API:
-  // - Min 5 znaków, max 70 znaków
-  // - No uppercase (tylko pierwsza litera może być wielka, reszta małe)
-  // - Jeśli za krótki, użyj fallback
-  if (title.length < 5) {
-    const fallbackTitle = titleRaw.length >= 5 ? titleRaw : (titleRaw || 'Mieszkanie do wynajęcia');
-    // Zawsze dodajemy prefix [qatest-mercury]
-    title = buildTestSafeTitle(fallbackTitle);
-  }
-  // Obetnij do max 70 znaków
-  title = title.substring(0, 70);
-  // Upewnij się że ma minimum 5 znaków po obcięciu
-  if (title.length < 5) {
-    throw new Error('Tytuł ogłoszenia musi mieć minimum 5 znaków.');
-  }
-  // OLX Group API wymaga: "no uppercase" - tylko pierwsza litera może być wielka
-  // Prefix [qatest-mercury] zostawiamy jak jest, konwertujemy resztę tytułu
-  if (title.startsWith('[qatest-mercury]')) {
-    const prefix = '[qatest-mercury]';
-    const restOfTitle = title.substring(prefix.length).trim();
-    if (restOfTitle.length > 0) {
-      // Konwertuj resztę tytułu: pierwsza litera wielka, reszta małe
-      title = prefix + ' ' + restOfTitle.charAt(0).toUpperCase() + restOfTitle.slice(1).toLowerCase();
-    }
-  } else {
-    // Dla normalnych tytułów: pierwsza litera wielka, reszta małe
-    title = title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
-  }
-  
-  // Description: min 50 znaków (wymagane przez OLX Group API)
-  // Zawsze używamy testowego opisu (używamy konta testowego)
-  // Użytkownik nie musi tego wpisywać w formularzu
-  let description = OTODOM_TEST_DESCRIPTION;
-  
-  // Jeśli opis jest za krótki, dodaj tekst
-  if (description.length < 50) {
-    description = description + ' ' + 'Mieszkanie do wynajęcia w doskonałej lokalizacji. Zapraszamy do kontaktu.';
-  }
-  description = description.substring(0, 65535); // Max 65535 znaków
+	const titleRaw = apartment.title || "";
+	// Użytkownik sam dodaje prefix [qatest-mercury] w tytule jeśli używa konta testowego
+	// Nie dodajemy go automatycznie - użytkownik ma pełną kontrolę
+	let title = titleRaw;
 
-  // Normalizuj URL-e zdjęć do pełnych URL-i (OLX Group API wymaga tablicy obiektów z 'url')
-  const normalizedImages = normalizeImageUrls(apartment.photos || []);
-  
-  // OLX Group API wymaga przynajmniej jednego zdjęcia
-  if (normalizedImages.length === 0) {
-    throw new Error('Otodom wymaga przynajmniej jednego zdjęcia do publikacji ogłoszenia.');
-  }
+	// Walidacja tytułu zgodnie z wymaganiami OLX Group API:
+	// - Min 5 znaków, max 70 znaków
+	// - No uppercase (tylko pierwsza litera może być wielka, reszta małe)
+	// - Jeśli za krótki, użyj fallback
+	if (title.length < 5) {
+		title = titleRaw.length >= 5 ? titleRaw : titleRaw || "Mieszkanie do wynajęcia";
+	}
+	// Obetnij do max 70 znaków
+	title = title.substring(0, 70);
+	// Upewnij się że ma minimum 5 znaków po obcięciu
+	if (title.length < 5) {
+		throw new Error("Tytuł ogłoszenia musi mieć minimum 5 znaków.");
+	}
+	// OLX Group API wymaga: "no uppercase" - tylko pierwsza litera może być wielka
+	// Prefix [qatest-mercury] zostawiamy jak jest, konwertujemy resztę tytułu
+	if (title.startsWith("[qatest-mercury]")) {
+		const prefix = "[qatest-mercury]";
+		const restOfTitle = title.substring(prefix.length).trim();
+		if (restOfTitle.length > 0) {
+			// Konwertuj resztę tytułu: pierwsza litera wielka, reszta małe
+			title =
+				prefix +
+				" " +
+				restOfTitle.charAt(0).toUpperCase() +
+				restOfTitle.slice(1).toLowerCase();
+		}
+	} else {
+		// Dla normalnych tytułów: pierwsza litera wielka, reszta małe
+		title = title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
+	}
 
-  // OLX Group API wymaga site_urn i category_urn (nie category_id)
-  // Upewnij się, że location.custom_fields są zawsze obecne (wymagane przez Otodom)
-  if (!location.custom_fields || !location.custom_fields.city_id || !location.custom_fields.street_name) {
-    console.warn('[otodom/publish] Location custom_fields missing, adding defaults');
-    location.custom_fields = {
-      city_id: location.custom_fields?.city_id || 26,
-      street_name: location.custom_fields?.street_name || 'Świętokrzyska',
-    };
-  }
+	// Description: min 50 znaków (wymagane przez OLX Group API)
+	// Używamy opisu z formularza mieszkania
+	let description = apartment.description || titleRaw || "";
 
-  // Zgodnie z dokumentacją OLX Group API:
-  // - attributes: tablica atrybutów z taxonomy (metraż, liczba pokoi itp.) - format: [{urn: "...", value: "..."}]
-  // - custom_fields: obiekt z metadanymi integracji (id, reference_id) - format: {id: "...", reference_id: "..."}
-  
-  // Buduj tablicę atrybutów z taxonomy
-  const attributes = [];
-  
-  // 1. Metraż - WYMAGANY dla apartments-for-rent
-  if (apartment.area != null && apartment.area > 0) {
-    attributes.push({
-      urn: 'urn:concept:net-area-m2',
-      value: String(apartment.area),
-    });
-  } else {
-    throw new Error('Metraż (area) jest wymagany dla publikacji ogłoszenia na Otodom.');
-  }
-  
-  // 2. Liczba pokoi - WYMAGANY dla apartments-for-rent
-  // Mapuj liczbę pokoi na odpowiedni URN zgodnie z taksonomią
-  let numberOfRooms = apartment.numberOfRooms != null ? Number(apartment.numberOfRooms) : null;
-  
-  // Jeśli brak liczby pokoi, spróbuj wyciągnąć z tytułu
-  // Przykład: "Mieszkanie 3-pokojowe" -> 3
-  if (!numberOfRooms || isNaN(numberOfRooms)) {
-    const titleMatch = apartment.title?.match(/(\d+)[\s-]*pokoj/i);
-    const extractedRooms = titleMatch ? parseInt(titleMatch[1], 10) : null;
-    if (extractedRooms && extractedRooms >= 1 && extractedRooms <= 10) {
-      numberOfRooms = extractedRooms;
-      console.log('[otodom/publish] Extracted number of rooms from title:', extractedRooms);
-    }
-  }
-  
-  // Walidacja i mapowanie na URN
-  if (numberOfRooms != null && numberOfRooms >= 1 && numberOfRooms <= 10) {
-    // Taksonomia: attribute urn = urn:concept:number-of-rooms, value = urn:concept:1..10
-    attributes.push({
-      urn: 'urn:concept:number-of-rooms',
-      value: `urn:concept:${numberOfRooms}`,
-    });
-  } else if (numberOfRooms != null && numberOfRooms > 10) {
-    // Taksonomia: value = urn:concept:more
-    attributes.push({
-      urn: 'urn:concept:number-of-rooms',
-      value: 'urn:concept:more',
-    });
-  } else {
-    // Liczba pokoi jest wymagana - rzuć błąd zamiast używać domyślnej wartości
-    throw new Error('Liczba pokoi (numberOfRooms) jest wymagana dla publikacji ogłoszenia na Otodom. Dodaj pole "Liczba pokoi" w formularzu mieszkania lub upewnij się, że tytuł zawiera informację o liczbie pokoi (np. "Mieszkanie 3-pokojowe").');
-  }
-  
-  // 3. Rynek (market) - WYMAGANY dla apartments-for-rent
-  // Domyślnie używamy "secondary" (rynek wtórny)
-  attributes.push({
-    urn: 'urn:concept:market',
-    value: 'urn:concept:secondary', // primary lub secondary
-  });
+	// Jeśli opis jest za krótki, dodaj tekst
+	if (description.length < 50) {
+		description =
+			description +
+			" " +
+			"Mieszkanie do wynajęcia w doskonałej lokalizacji. Zapraszamy do kontaktu.";
+	}
+	description = description.substring(0, 65535); // Max 65535 znaków
 
-  const advertData = {
-    site_urn: OTODOM_SITE_URN, // urn:site:otodompl
-    category_urn: 'urn:concept:apartments-for-rent', // Mieszkania do wynajęcia
-    title, // Już zwalidowany: 5-70 znaków, no uppercase
-    description,
-    price: {
-      value: Number(apartment.price), // Musi być liczbą
-      currency: 'PLN',
-    },
-    location, // location.custom_fields zawierają city_id i street_name
-    images: normalizedImages,
-    // Atrybuty z taxonomy (metraż, liczba pokoi itp.)
-    attributes: attributes.length > 0 ? attributes : [],
-    // custom_fields: metadane integracji - API wymaga pola 'id'
-    custom_fields: {
-      id: apartment._id?.toString() || `apt-${Date.now()}`, // Wymagane przez API
-      reference_id: apartment._id?.toString() || null, // Opcjonalne dla śledzenia
-    },
-  };
+	// Normalizuj URL-e zdjęć do pełnych URL-i (OLX Group API wymaga tablicy obiektów z 'url')
+	const normalizedImages = normalizeImageUrls(apartment.photos || []);
 
-  // Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
-  // Na razie pomijamy contact - API użyje danych z konta OAuth
+	// OLX Group API wymaga przynajmniej jednego zdjęcia
+	if (normalizedImages.length === 0) {
+		throw new Error(
+			"Otodom wymaga przynajmniej jednego zdjęcia do publikacji ogłoszenia.",
+		);
+	}
 
-  // Log payload przed wysłaniem (dla debugowania)
-  console.log('[otodom/publish] Payload:', JSON.stringify(advertData, null, 2));
-  console.log('[otodom/publish] Location:', JSON.stringify(location, null, 2));
+	// OLX Group API wymaga site_urn i category_urn (nie category_id)
+	// Upewnij się, że location.custom_fields są zawsze obecne (wymagane przez Otodom)
+	if (
+		!location.custom_fields ||
+		!location.custom_fields.city_id ||
+		!location.custom_fields.street_name
+	) {
+		console.warn(
+			"[otodom/publish] Location custom_fields missing, adding defaults",
+		);
+		location.custom_fields = {
+			city_id: location.custom_fields?.city_id || 26,
+			street_name: location.custom_fields?.street_name || "Świętokrzyska",
+		};
+	}
 
-  try {
-    const response = await axios.post(
-      OTODOM_API_BASE, // https://api.olxgroup.com/advert/v1
-      advertData,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'X-API-KEY': appCreds.apiKey,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'PortfelNieruchomosci',
-        },
-        timeout: 20000,
-      }
-    );
+	// Zgodnie z dokumentacją OLX Group API:
+	// - attributes: tablica atrybutów z taxonomy (metraż, liczba pokoi itp.) - format: [{urn: "...", value: "..."}]
+	// - custom_fields: obiekt z metadanymi integracji (id, reference_id) - format: {id: "...", reference_id: "..."}
 
-    // OLX Group API zwraca transaction_id (nie id) - ogłoszenie jest publikowane asynchronicznie
-    const transactionId = response.data.transaction_id || response.data.id;
-    // W response.data.data.uuid jest prawdziwe ID ogłoszenia (object_id) - używamy go jeśli jest dostępny
-    const objectId = response.data?.data?.uuid || null;
-    // URL może być w response.data.url lub trzeba będzie poczekać na webhook
-    const advertUrl = response.data.url || (objectId ? `https://www.otodom.pl/pl/oferta/${objectId}` : `https://www.otodom.pl/pl/oferta/${transactionId}`);
+	// Buduj tablicę atrybutów z taxonomy
+	const attributes = [];
 
-    console.log('[otodom/publish] Success:', { 
-      transactionId, 
-      objectId: objectId || 'not provided',
-      responseData: response.data 
-    });
+	// 1. Metraż - WYMAGANY dla apartments-for-rent
+	if (apartment.area != null && apartment.area > 0) {
+		attributes.push({
+			urn: "urn:concept:net-area-m2",
+			value: String(apartment.area),
+		});
+	} else {
+		throw new Error(
+			"Metraż (area) jest wymagany dla publikacji ogłoszenia na Otodom.",
+		);
+	}
 
-    return {
-      success: true,
-      advertId: objectId || transactionId, // Używamy object_id jeśli jest dostępny, w przeciwnym razie transaction_id
-      transactionId,
-      objectId, // Prawdziwe ID ogłoszenia jeśli jest dostępne
-      url: advertUrl,
-    };
-  } catch (err) {
-    // Log pełnego obiektu errors dla debugowania
-    if (err.response?.data?.errors) {
-      console.error('[otodom/publish] Full errors array:', JSON.stringify(err.response.data.errors, null, 2));
-    }
-    
-    console.error('Błąd publikacji na Otodom:', {
-      status: err.response?.status,
-      data: err.response?.data,
-      message: err.message,
-    });
-    
-    // Wyciągnij czytelny komunikat błędu z szczegółami walidacji
-    let details = '';
-    if (err.response?.data) {
-      const data = err.response.data;
-      
-      // Jeśli są szczegółowe błędy walidacji w errors array, wyświetl je
-      if (Array.isArray(data.errors) && data.errors.length > 0) {
-        const errorMessages = data.errors.map((e) => {
-          if (typeof e === 'string') return e;
-          // Pełny obiekt błędu dla lepszego debugowania
-          if (e?.field && e?.message) {
-            return `${e.field}: ${e.message}${e?.value ? ` (value: ${JSON.stringify(e.value)})` : ''}`;
-          }
-          if (e?.message) return e.message;
-          // Jeśli nie ma field/message, wyświetl cały obiekt
-          return JSON.stringify(e, null, 2);
-        });
-        details = `Validation errors: ${errorMessages.join('; ')}`;
-      } else if (data.message) {
-        details = String(data.message);
-        // Jeśli jest message ale też errors, dodaj je
-        if (Array.isArray(data.errors) && data.errors.length > 0) {
-          details += ` (${data.errors.length} error(s))`;
-        }
-      } else if (typeof data === 'string') {
-        details = data;
-      } else if (data.error_description) {
-        details = String(data.error_description);
-      } else if (data.error) {
-        details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-      } else {
-        // Fallback: wyświetl cały obiekt data jako JSON
-        details = JSON.stringify(data, null, 2);
-      }
-    } else if (err.message) {
-      details = String(err.message);
-    } else {
-      details = 'Nieznany błąd';
-    }
-    
-    throw new Error(`Nie udało się opublikować ogłoszenia na Otodom: ${details}`);
-  }
+	// 2. Liczba pokoi - WYMAGANY dla apartments-for-rent
+	// Mapuj liczbę pokoi na odpowiedni URN zgodnie z taksonomią
+	let numberOfRooms =
+		apartment.numberOfRooms != null ? Number(apartment.numberOfRooms) : null;
+
+	// Jeśli brak liczby pokoi, spróbuj wyciągnąć z tytułu
+	// Przykład: "Mieszkanie 3-pokojowe" -> 3
+	if (!numberOfRooms || isNaN(numberOfRooms)) {
+		const titleMatch = apartment.title?.match(/(\d+)[\s-]*pokoj/i);
+		const extractedRooms = titleMatch ? parseInt(titleMatch[1], 10) : null;
+		if (extractedRooms && extractedRooms >= 1 && extractedRooms <= 10) {
+			numberOfRooms = extractedRooms;
+			console.log(
+				"[otodom/publish] Extracted number of rooms from title:",
+				extractedRooms,
+			);
+		}
+	}
+
+	// Walidacja i mapowanie na URN
+	if (numberOfRooms != null && numberOfRooms >= 1 && numberOfRooms <= 10) {
+		// Taksonomia: attribute urn = urn:concept:number-of-rooms, value = urn:concept:1..10
+		attributes.push({
+			urn: "urn:concept:number-of-rooms",
+			value: `urn:concept:${numberOfRooms}`,
+		});
+	} else if (numberOfRooms != null && numberOfRooms > 10) {
+		// Taksonomia: value = urn:concept:more
+		attributes.push({
+			urn: "urn:concept:number-of-rooms",
+			value: "urn:concept:more",
+		});
+	} else {
+		// Liczba pokoi jest wymagana - rzuć błąd zamiast używać domyślnej wartości
+		throw new Error(
+			'Liczba pokoi (numberOfRooms) jest wymagana dla publikacji ogłoszenia na Otodom. Dodaj pole "Liczba pokoi" w formularzu mieszkania lub upewnij się, że tytuł zawiera informację o liczbie pokoi (np. "Mieszkanie 3-pokojowe").',
+		);
+	}
+
+	// 3. Rynek (market) - WYMAGANY dla apartments-for-rent
+	// Domyślnie używamy "secondary" (rynek wtórny)
+	attributes.push({
+		urn: "urn:concept:market",
+		value: "urn:concept:secondary", // primary lub secondary
+	});
+
+	const advertData = {
+		site_urn: OTODOM_SITE_URN, // urn:site:otodompl
+		category_urn: "urn:concept:apartments-for-rent", // Mieszkania do wynajęcia
+		title, // Już zwalidowany: 5-70 znaków, no uppercase
+		description,
+		price: {
+			value: Number(apartment.price), // Musi być liczbą
+			currency: "PLN",
+		},
+		location, // location.custom_fields zawierają city_id i street_name
+		images: normalizedImages,
+		// Atrybuty z taxonomy (metraż, liczba pokoi itp.)
+		attributes: attributes.length > 0 ? attributes : [],
+		// custom_fields: metadane integracji - API wymaga pola 'id'
+		custom_fields: {
+			id: apartment._id?.toString() || `apt-${Date.now()}`, // Wymagane przez API
+			reference_id: apartment._id?.toString() || null, // Opcjonalne dla śledzenia
+		},
+	};
+
+	// Contact jest opcjonalny, ale jeśli jest podany, wymaga name i email
+	// Na razie pomijamy contact - API użyje danych z konta OAuth
+
+	// Log payload przed wysłaniem (dla debugowania)
+	console.log("[otodom/publish] Payload:", JSON.stringify(advertData, null, 2));
+	console.log("[otodom/publish] Location:", JSON.stringify(location, null, 2));
+
+	try {
+		const response = await axios.post(
+			OTODOM_API_BASE, // https://api.olxgroup.com/advert/v1
+			advertData,
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"X-API-KEY": appCreds.apiKey,
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					"User-Agent": "PortfelNieruchomosci",
+				},
+				timeout: 20000,
+			},
+		);
+
+		// OLX Group API zwraca transaction_id (nie id) - ogłoszenie jest publikowane asynchronicznie
+		const transactionId = response.data.transaction_id || response.data.id;
+		// W response.data.data.uuid jest prawdziwe ID ogłoszenia (object_id) - używamy go jeśli jest dostępny
+		const objectId = response.data?.data?.uuid || null;
+		// URL może być w response.data.url lub trzeba będzie poczekać na webhook
+		const advertUrl =
+			response.data.url ||
+			(objectId
+				? `https://www.otodom.pl/pl/oferta/${objectId}`
+				: `https://www.otodom.pl/pl/oferta/${transactionId}`);
+
+		console.log("[otodom/publish] Success:", {
+			transactionId,
+			objectId: objectId || "not provided",
+			responseData: response.data,
+		});
+
+		return {
+			success: true,
+			advertId: objectId || transactionId, // Używamy object_id jeśli jest dostępny, w przeciwnym razie transaction_id
+			transactionId,
+			objectId, // Prawdziwe ID ogłoszenia jeśli jest dostępne
+			url: advertUrl,
+		};
+	} catch (err) {
+		// Log pełnego obiektu errors dla debugowania
+		if (err.response?.data?.errors) {
+			console.error(
+				"[otodom/publish] Full errors array:",
+				JSON.stringify(err.response.data.errors, null, 2),
+			);
+		}
+
+		console.error("Błąd publikacji na Otodom:", {
+			status: err.response?.status,
+			data: err.response?.data,
+			message: err.message,
+		});
+
+		// Wyciągnij czytelny komunikat błędu z szczegółami walidacji
+		let details = "";
+		if (err.response?.data) {
+			const data = err.response.data;
+
+			// Jeśli są szczegółowe błędy walidacji w errors array, wyświetl je
+			if (Array.isArray(data.errors) && data.errors.length > 0) {
+				const errorMessages = data.errors.map((e) => {
+					if (typeof e === "string") return e;
+					// Pełny obiekt błędu dla lepszego debugowania
+					if (e?.field && e?.message) {
+						return `${e.field}: ${e.message}${e?.value ? ` (value: ${JSON.stringify(e.value)})` : ""}`;
+					}
+					if (e?.message) return e.message;
+					// Jeśli nie ma field/message, wyświetl cały obiekt
+					return JSON.stringify(e, null, 2);
+				});
+				details = `Validation errors: ${errorMessages.join("; ")}`;
+			} else if (data.message) {
+				details = String(data.message);
+				// Jeśli jest message ale też errors, dodaj je
+				if (Array.isArray(data.errors) && data.errors.length > 0) {
+					details += ` (${data.errors.length} error(s))`;
+				}
+			} else if (typeof data === "string") {
+				details = data;
+			} else if (data.error_description) {
+				details = String(data.error_description);
+			} else if (data.error) {
+				details =
+					typeof data.error === "string"
+						? data.error
+						: JSON.stringify(data.error);
+			} else {
+				// Fallback: wyświetl cały obiekt data jako JSON
+				details = JSON.stringify(data, null, 2);
+			}
+		} else if (err.message) {
+			details = String(err.message);
+		} else {
+			details = "Nieznany błąd";
+		}
+
+		throw new Error(
+			`Nie udało się opublikować ogłoszenia na Otodom: ${details}`,
+		);
+	}
 }
 
 /**
@@ -509,74 +586,79 @@ export async function publishOtodomAdvert(apartment, userId) {
  * @param {string|ObjectId} userId - ID użytkownika aplikacji
  */
 export async function updateOtodomAdvert(externalId, apartment, userId) {
-  const accessToken = await getOtodomAccessToken(userId);
-  const appCreds = await getOtodomAppCredentials();
+	const accessToken = await getOtodomAccessToken(userId);
+	const appCreds = await getOtodomAppCredentials();
 
-  const titleRaw = apartment.title || '';
-  // Zawsze dodajemy prefix [qatest-mercury] automatycznie (używamy konta testowego)
-  const title = buildTestSafeTitle(titleRaw);
-  // Zawsze używamy testowego opisu (używamy konta testowego)
-  const description = OTODOM_TEST_DESCRIPTION;
+	const titleRaw = apartment.title || "";
+	// Użytkownik sam dodaje prefix [qatest-mercury] w tytule jeśli używa konta testowego
+	const title = titleRaw;
+	// Używamy opisu z formularza mieszkania
+	const description = apartment.description || titleRaw;
 
-  // Normalizuj URL-e zdjęć do pełnych URL-i
-  const normalizedImages = normalizeImageUrls(apartment.photos || []);
+	// Normalizuj URL-e zdjęć do pełnych URL-i
+	const normalizedImages = normalizeImageUrls(apartment.photos || []);
 
-  const advertData = {
-    title: title.substring(0, 70),
-    description,
-    price: {
-      value: apartment.price,
-      currency: 'PLN',
-    },
-    images: normalizedImages,
-  };
+	const advertData = {
+		title: title.substring(0, 70),
+		description,
+		price: {
+			value: apartment.price,
+			currency: "PLN",
+		},
+		images: normalizedImages,
+	};
 
-  try {
-    await axios.put(
-      `${OTODOM_API_BASE}/${externalId}`, // https://api.olxgroup.com/advert/v1/{advert_id}
-      advertData,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'X-API-KEY': appCreds.apiKey,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'PortfelNieruchomosci',
-        },
-        timeout: 20000,
-      }
-    );
+	try {
+		await axios.put(
+			`${OTODOM_API_BASE}/${externalId}`, // https://api.olxgroup.com/advert/v1/{advert_id}
+			advertData,
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"X-API-KEY": appCreds.apiKey,
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					"User-Agent": "PortfelNieruchomosci",
+				},
+				timeout: 20000,
+			},
+		);
 
-    return { success: true };
-  } catch (err) {
-    console.error('Błąd aktualizacji ogłoszenia Otodom:', {
-      status: err.response?.status,
-      data: err.response?.data,
-      message: err.message,
-    });
-    
-    let details = '';
-    if (err.response?.data) {
-      const data = err.response.data;
-      if (typeof data === 'string') {
-        details = data;
-      } else if (data.message) {
-        details = String(data.message);
-      } else if (data.error_description) {
-        details = String(data.error_description);
-      } else if (data.error) {
-        details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-      } else {
-        details = JSON.stringify(data);
-      }
-    } else if (err.message) {
-      details = String(err.message);
-    } else {
-      details = 'Nieznany błąd';
-    }
-    
-    throw new Error(`Nie udało się zaktualizować ogłoszenia na Otodom: ${details}`);
-  }
+		return { success: true };
+	} catch (err) {
+		console.error("Błąd aktualizacji ogłoszenia Otodom:", {
+			status: err.response?.status,
+			data: err.response?.data,
+			message: err.message,
+		});
+
+		let details = "";
+		if (err.response?.data) {
+			const data = err.response.data;
+			if (typeof data === "string") {
+				details = data;
+			} else if (data.message) {
+				details = String(data.message);
+			} else if (data.error_description) {
+				details = String(data.error_description);
+			} else if (data.error) {
+				details =
+					typeof data.error === "string"
+						? data.error
+						: JSON.stringify(data.error);
+			} else {
+				details = JSON.stringify(data);
+			}
+		} else if (err.message) {
+			details = String(err.message);
+		} else {
+			details = "Nieznany błąd";
+		}
+
+		throw new Error(
+			`Nie udało się zaktualizować ogłoszenia na Otodom: ${details}`,
+		);
+	}
 }
 
 /**
@@ -585,52 +667,54 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
  * @param {string|ObjectId} userId - ID użytkownika aplikacji
  */
 export async function getOtodomAdvertStatus(advertId, userId) {
-  const accessToken = await getOtodomAccessToken(userId);
-  const appCreds = await getOtodomAppCredentials();
+	const accessToken = await getOtodomAccessToken(userId);
+	const appCreds = await getOtodomAppCredentials();
 
-  try {
-    const response = await axios.get(
-      `${OTODOM_API_BASE}/${advertId}/meta`, // https://api.olxgroup.com/advert/v1/{advert_id}/meta
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'X-API-KEY': appCreds.apiKey,
-          Accept: 'application/json',
-          'User-Agent': 'PortfelNieruchomosci',
-        },
-        timeout: 20000,
-      }
-    );
+	try {
+		const response = await axios.get(
+			`${OTODOM_API_BASE}/${advertId}/meta`, // https://api.olxgroup.com/advert/v1/{advert_id}/meta
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"X-API-KEY": appCreds.apiKey,
+					Accept: "application/json",
+					"User-Agent": "PortfelNieruchomosci",
+				},
+				timeout: 20000,
+			},
+		);
 
-    return {
-      success: true,
-      data: response.data,
-    };
-  } catch (err) {
-    console.error('Błąd sprawdzania statusu ogłoszenia Otodom:', {
-      status: err.response?.status,
-      data: err.response?.data,
-      message: err.message,
-    });
-    
-    let details = '';
-    if (err.response?.data) {
-      const data = err.response.data;
-      if (typeof data === 'string') {
-        details = data;
-      } else if (data.message) {
-        details = String(data.message);
-      } else {
-        details = JSON.stringify(data);
-      }
-    } else if (err.message) {
-      details = String(err.message);
-    } else {
-      details = 'Nieznany błąd';
-    }
-    
-    throw new Error(`Nie udało się sprawdzić statusu ogłoszenia na Otodom: ${details}`);
-  }
+		return {
+			success: true,
+			data: response.data,
+		};
+	} catch (err) {
+		console.error("Błąd sprawdzania statusu ogłoszenia Otodom:", {
+			status: err.response?.status,
+			data: err.response?.data,
+			message: err.message,
+		});
+
+		let details = "";
+		if (err.response?.data) {
+			const data = err.response.data;
+			if (typeof data === "string") {
+				details = data;
+			} else if (data.message) {
+				details = String(data.message);
+			} else {
+				details = JSON.stringify(data);
+			}
+		} else if (err.message) {
+			details = String(err.message);
+		} else {
+			details = "Nieznany błąd";
+		}
+
+		throw new Error(
+			`Nie udało się sprawdzić statusu ogłoszenia na Otodom: ${details}`,
+		);
+	}
 }
 
 /**
@@ -639,51 +723,54 @@ export async function getOtodomAdvertStatus(advertId, userId) {
  * @param {string|ObjectId} userId - ID użytkownika aplikacji
  */
 export async function deleteOtodomAdvert(externalId, userId) {
-  const accessToken = await getOtodomAccessToken(userId);
-  const appCreds = await getOtodomAppCredentials();
+	const accessToken = await getOtodomAccessToken(userId);
+	const appCreds = await getOtodomAppCredentials();
 
-  try {
-    await axios.delete(
-      `${OTODOM_API_BASE}/${externalId}`, // https://api.olxgroup.com/advert/v1/{advert_id}
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'X-API-KEY': appCreds.apiKey,
-          Accept: 'application/json',
-          'User-Agent': 'PortfelNieruchomosci',
-        },
-        timeout: 20000,
-      }
-    );
+	try {
+		await axios.delete(
+			`${OTODOM_API_BASE}/${externalId}`, // https://api.olxgroup.com/advert/v1/{advert_id}
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"X-API-KEY": appCreds.apiKey,
+					Accept: "application/json",
+					"User-Agent": "PortfelNieruchomosci",
+				},
+				timeout: 20000,
+			},
+		);
 
-    return { success: true };
-  } catch (err) {
-    console.error('Błąd usuwania ogłoszenia z Otodom:', {
-      status: err.response?.status,
-      data: err.response?.data,
-      message: err.message,
-    });
-    
-    let details = '';
-    if (err.response?.data) {
-      const data = err.response.data;
-      if (typeof data === 'string') {
-        details = data;
-      } else if (data.message) {
-        details = String(data.message);
-      } else if (data.error_description) {
-        details = String(data.error_description);
-      } else if (data.error) {
-        details = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-      } else {
-        details = JSON.stringify(data);
-      }
-    } else if (err.message) {
-      details = String(err.message);
-    } else {
-      details = 'Nieznany błąd';
-    }
-    
-    throw new Error(`Nie udało się usunąć ogłoszenia z Otodom: ${details}`);
-  }
+		return { success: true };
+	} catch (err) {
+		console.error("Błąd usuwania ogłoszenia z Otodom:", {
+			status: err.response?.status,
+			data: err.response?.data,
+			message: err.message,
+		});
+
+		let details = "";
+		if (err.response?.data) {
+			const data = err.response.data;
+			if (typeof data === "string") {
+				details = data;
+			} else if (data.message) {
+				details = String(data.message);
+			} else if (data.error_description) {
+				details = String(data.error_description);
+			} else if (data.error) {
+				details =
+					typeof data.error === "string"
+						? data.error
+						: JSON.stringify(data.error);
+			} else {
+				details = JSON.stringify(data);
+			}
+		} else if (err.message) {
+			details = String(err.message);
+		} else {
+			details = "Nieznany błąd";
+		}
+
+		throw new Error(`Nie udało się usunąć ogłoszenia z Otodom: ${details}`);
+	}
 }
