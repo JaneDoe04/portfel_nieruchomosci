@@ -126,6 +126,59 @@ async function resolveCityIdByName(apiKey, cityName) {
 	return null;
 }
 
+/**
+ * Geokoduj ulicę używając Otodom Locations API (preferowane)
+ * @param {string} apiKey - X-API-KEY dla Otodom
+ * @param {number} cityId - ID miasta z Otodom
+ * @param {string} streetName - Nazwa ulicy
+ * @returns {Promise<{lat: number, lon: number} | null>}
+ */
+async function resolveLatLonWithOtodomAPI(apiKey, cityId, streetName) {
+	if (!apiKey || !cityId || !streetName) return null;
+	
+	try {
+		// Otodom Locations API: wyszukaj ulicę w mieście
+		const url = `${OTODOM_LOCATIONS_BASE}/streets?city_id=${cityId}&search=${encodeURIComponent(streetName)}&limit=1`;
+		const { data } = await axios.get(url, {
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+				"X-API-KEY": apiKey,
+				"User-Agent": "PortfelNieruchomosci",
+			},
+			timeout: 10000,
+		});
+
+		const streets = Array.isArray(data?.data) ? data.data : [];
+		const first = streets[0];
+		
+		// Otodom Locations API zwraca lat/lon dla ulicy
+		if (first?.lat != null && first?.lon != null) {
+			return {
+				lat: Number(first.lat),
+				lon: Number(first.lon),
+			};
+		}
+		
+		// Jeśli ulica ma centroid (środek), użyj go
+		if (first?.centroid?.lat != null && first?.centroid?.lon != null) {
+			return {
+				lat: Number(first.centroid.lat),
+				lon: Number(first.centroid.lon),
+			};
+		}
+		
+		return null;
+	} catch (e) {
+		console.warn("[otodom/geocode] Otodom API geocode failed", {
+			cityId,
+			streetName,
+			err: e.message,
+		});
+		return null;
+	}
+}
+
 async function resolveLatLonWithNominatim(address) {
 	const enabled =
 		String(process.env.OTODOM_GEOCODE || "").toLowerCase() === "true";
@@ -144,26 +197,35 @@ async function resolveLatLonWithNominatim(address) {
 }
 
 async function buildOtodomLocation(apartment) {
-	// Defaults (safe fallback)
-	let lat = apartment.lat ?? 52.2297;
-	let lon = apartment.lon ?? 21.0122;
+	// Pobierz API key dla Otodom Locations API
+	const appCreds = await ApiCredentials.findOne({
+		platform: "otodom",
+		userId: null,
+	}).lean();
+	const apiKey = appCreds?.apiKey;
 
 	// street_name: parse from address if not provided
+	const parsedStreetName = parseStreetNameFromAddress(apartment.address);
 	const streetName =
 		(apartment.streetName && apartment.streetName.trim()) ||
-		parseStreetNameFromAddress(apartment.address) ||
-		"Świętokrzyska";
+		(parsedStreetName && parsedStreetName.trim()) ||
+		null;
+
+	console.log("[otodom/location] Building location", {
+		address: apartment.address,
+		streetNameFromModel: apartment.streetName,
+		parsedStreetName,
+		finalStreetName: streetName,
+		lat: apartment.lat,
+		lon: apartment.lon,
+		cityId: apartment.cityId,
+	});
 
 	// city_id: if not provided, resolve via OLX Group Locations API using X-API-KEY
 	let cityId = apartment.cityId != null ? Number(apartment.cityId) : null;
-	if (!cityId || Number.isNaN(cityId)) {
-		const appCreds = await ApiCredentials.findOne({
-			platform: "otodom",
-			userId: null,
-		}).lean();
-		const apiKey = appCreds?.apiKey;
-		if (apiKey) {
-			const cityName = parseCityFromAddress(apartment.address);
+	if ((!cityId || Number.isNaN(cityId)) && apiKey) {
+		const cityName = parseCityFromAddress(apartment.address);
+		if (cityName) {
 			try {
 				cityId = await resolveCityIdByName(apiKey, cityName);
 			} catch (e) {
@@ -174,33 +236,70 @@ async function buildOtodomLocation(apartment) {
 			}
 		}
 	}
-	if (!cityId) cityId = 26; // fallback Warszawa
+	if (!cityId || Number.isNaN(cityId)) {
+		cityId = 26; // fallback Warszawa
+	}
 
-	// lat/lon optional auto-geocode (disabled by default)
-	if (apartment.lat == null || apartment.lon == null) {
+	// lat/lon: preferuj wartości z mieszkania, jeśli są podane
+	let lat = apartment.lat != null ? Number(apartment.lat) : null;
+	let lon = apartment.lon != null ? Number(apartment.lon) : null;
+
+	// Jeśli brakuje lat/lon, geokoduj używając Otodom Locations API (preferowane)
+	if ((lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) && apiKey && cityId && streetName) {
+		try {
+			const geo = await resolveLatLonWithOtodomAPI(apiKey, cityId, streetName);
+			if (geo?.lat && geo?.lon) {
+				lat = geo.lat;
+				lon = geo.lon;
+				console.log("[otodom/location] Geocoded via Otodom API", {
+					cityId,
+					streetName,
+					lat,
+					lon,
+				});
+			}
+		} catch (e) {
+			console.warn("[otodom/geocode] Otodom API geocode failed", e.message);
+		}
+	}
+
+	// Fallback: jeśli nadal brakuje lat/lon, użyj Nominatim (tylko jeśli włączone)
+	if ((lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) && apartment.address) {
 		try {
 			const geo = await resolveLatLonWithNominatim(apartment.address);
 			if (geo?.lat && geo?.lon) {
 				lat = geo.lat;
 				lon = geo.lon;
+				console.log("[otodom/location] Geocoded via Nominatim", {
+					address: apartment.address,
+					lat,
+					lon,
+				});
 			}
 		} catch (e) {
-			console.warn("[otodom/geocode] failed", e.message);
+			console.warn("[otodom/geocode] Nominatim failed", e.message);
 		}
 	}
 
+	// Ostateczny fallback: centrum Warszawy (tylko jeśli wszystko inne zawiodło)
+	if (lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) {
+		console.warn("[otodom/location] Using fallback coordinates (Warsaw center)");
+		lat = 52.2297;
+		lon = 21.0122;
+	}
+
+	// Upewnij się, że streetName jest ustawione (wymagane przez Otodom)
+	const finalStreetName = (streetName && streetName.trim()) || "Świętokrzyska"; // fallback
+
 	// Otodom WYMAGA custom_fields z city_id i street_name (oba razem)
 	// Zgodnie z dokumentacją: "Nazwa ulicy (street_name) powinna być zawsze przesłana wraz z numerem ID miejscowości (city_id)"
-
-	// Upewnij się, że mamy oba pola (użyj fallbacków jeśli brakuje)
 	const finalCityId = cityId && !Number.isNaN(cityId) ? Number(cityId) : 26; // fallback Warszawa
-	const finalStreetName = (streetName && streetName.trim()) || "Świętokrzyska"; // fallback
 
 	// OLX Group API wymaga location z lat/lon/exact + custom_fields (oba pola razem)
 	const location = {
 		exact: true,
-		lat,
-		lon,
+		lat: Number(lat),
+		lon: Number(lon),
 		custom_fields: {
 			city_id: finalCityId,
 			street_name: finalStreetName,
