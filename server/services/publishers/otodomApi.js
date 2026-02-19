@@ -424,6 +424,26 @@ function buildOtodomAttributes(apartment) {
 		});
 	}
 
+	// 9. Czynsz i kaucja - próba dodania jako atrybuty
+	// Otodom może mieć te pola w taksonomii, ale nie są widoczne w podstawowej dokumentacji
+	// Próbujemy najbardziej prawdopodobne URN-y - jeśli API zwróci błąd walidacji,
+	// będziemy wiedzieć które pola są nieprawidłowe i możemy je usunąć
+	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
+		// Najbardziej prawdopodobne URN-y dla czynszu
+		attributes.push({
+			urn: "urn:concept:rent-charges",
+			value: String(apartment.rentCharges),
+		});
+	}
+	
+	if (apartment.deposit != null && apartment.deposit > 0) {
+		// Najbardziej prawdopodobne URN-y dla kaucji
+		attributes.push({
+			urn: "urn:concept:deposit",
+			value: String(apartment.deposit),
+		});
+	}
+
 	return attributes;
 }
 
@@ -449,7 +469,8 @@ export async function publishOtodomAdvert(apartment, userId) {
 	// - No uppercase (tylko pierwsza litera może być wielka, reszta małe)
 	// - Jeśli za krótki, użyj fallback
 	if (title.length < 5) {
-		title = titleRaw.length >= 5 ? titleRaw : titleRaw || "Mieszkanie do wynajęcia";
+		title =
+			titleRaw.length >= 5 ? titleRaw : titleRaw || "Mieszkanie do wynajęcia";
 	}
 	// Obetnij do max 70 znaków
 	title = title.substring(0, 70);
@@ -537,15 +558,30 @@ export async function publishOtodomAdvert(apartment, userId) {
 		);
 	}
 
+	// Buduj obiekt price z dodatkowymi polami dla czynszu i kaucji
+	const priceObject = {
+		value: Number(apartment.price), // Musi być liczbą
+		currency: "PLN",
+	};
+	
+	// Dodaj czynsz i kaucję do obiektu price (jeśli API to obsługuje)
+	// Otodom może mieć te pola jako dodatkowe właściwości obiektu price
+	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
+		priceObject.service_charge = Number(apartment.rentCharges);
+		priceObject.additional_charges = Number(apartment.rentCharges);
+	}
+	
+	if (apartment.deposit != null && apartment.deposit > 0) {
+		priceObject.deposit = Number(apartment.deposit);
+		priceObject.security_deposit = Number(apartment.deposit);
+	}
+
 	const advertData = {
 		site_urn: OTODOM_SITE_URN, // urn:site:otodompl
 		category_urn: "urn:concept:apartments-for-rent", // Mieszkania do wynajęcia
 		title, // Już zwalidowany: 5-70 znaków, no uppercase
 		description,
-		price: {
-			value: Number(apartment.price), // Musi być liczbą
-			currency: "PLN",
-		},
+		price: priceObject,
 		location, // location.custom_fields zawierają city_id i street_name
 		images: normalizedImages,
 		// Atrybuty z taxonomy (metraż, liczba pokoi itp.)
@@ -698,13 +734,26 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 	// Buduj atrybuty zgodnie z taksonomią Otodom
 	const attributes = buildOtodomAttributes(apartment);
 
+	// Buduj obiekt price z dodatkowymi polami dla czynszu i kaucji
+	const priceObject = {
+		value: apartment.price,
+		currency: "PLN",
+	};
+	
+	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
+		priceObject.service_charge = Number(apartment.rentCharges);
+		priceObject.additional_charges = Number(apartment.rentCharges);
+	}
+	
+	if (apartment.deposit != null && apartment.deposit > 0) {
+		priceObject.deposit = Number(apartment.deposit);
+		priceObject.security_deposit = Number(apartment.deposit);
+	}
+
 	const advertData = {
 		title: title.substring(0, 70),
 		description,
-		price: {
-			value: apartment.price,
-			currency: "PLN",
-		},
+		price: priceObject,
 		images: normalizedImages,
 		attributes: attributes.length > 0 ? attributes : [],
 	};
