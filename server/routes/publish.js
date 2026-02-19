@@ -262,14 +262,21 @@ router.post("/:apartmentId/otodom", async (req, res) => {
 		// Loguj dane mieszkania przed publikacją (dla debugowania)
 		console.log("[publish/otodom/POST] Apartment data before publish:", {
 			_id: apartment._id.toString(),
+			status: apartment.status,
 			availableFrom: apartment.availableFrom,
 			availableFromType: typeof apartment.availableFrom,
 			availableFromISO: apartment.availableFrom ? new Date(apartment.availableFrom).toISOString().split("T")[0] : null,
 		});
 
-		if (apartment.status !== "WOLNE") {
+		// Mieszkanie może być publikowane jeśli:
+		// 1. Status to "WOLNE" LUB
+		// 2. Ma ustawione availableFrom w przyszłości (nawet jeśli status to "WYNAJĘTE" ale będzie wolne za tydzień)
+		const canPublish = apartment.status === "WOLNE" || 
+			(apartment.availableFrom && new Date(apartment.availableFrom) > new Date());
+
+		if (!canPublish) {
 			return res.status(400).json({
-				message: "Można publikować tylko mieszkania ze statusem WOLNE.",
+				message: "Można publikować tylko mieszkania ze statusem WOLNE lub z ustawioną datą dostępności w przyszłości.",
 			});
 		}
 

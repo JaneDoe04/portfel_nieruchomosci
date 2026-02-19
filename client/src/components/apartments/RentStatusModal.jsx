@@ -37,24 +37,37 @@ export default function RentStatusModal({
 	const [contractEndDate, setContractEndDate] = useState(
 		apartment.contractEndDate ? apartment.contractEndDate.slice(0, 10) : "",
 	);
+	// Funkcja pomocnicza do konwersji daty na format YYYY-MM-DD dla input type="date"
+	const formatDateForInput = (dateValue) => {
+		if (!dateValue) return "";
+		// Jeśli to już string w formacie YYYY-MM-DD, zwróć go
+		if (typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+			return dateValue.slice(0, 10);
+		}
+		// Jeśli to Date object lub ISO string, skonwertuj
+		const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+		if (isNaN(date.getTime())) return "";
+		// Używamy UTC żeby uniknąć problemów ze strefą czasową
+		const year = date.getUTCFullYear();
+		const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+		const day = String(date.getUTCDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
 	const [availableFrom, setAvailableFrom] = useState(
-		apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : "",
+		formatDateForInput(apartment.availableFrom),
 	);
 	
 	// Odśwież availableFrom gdy apartment się zmienia (np. po zapisaniu przez onRefresh)
 	useEffect(() => {
-		if (apartment?.availableFrom) {
-			const newAvailableFrom = apartment.availableFrom.slice(0, 10);
-			if (newAvailableFrom !== availableFrom) {
-				console.log("[RentStatusModal] Updating availableFrom from apartment prop:", {
-					old: availableFrom,
-					new: newAvailableFrom,
-				});
-				setAvailableFrom(newAvailableFrom);
-			}
-		} else if (apartment && !apartment.availableFrom && availableFrom) {
-			// Jeśli apartment nie ma availableFrom ale state ma, wyczyść
-			setAvailableFrom("");
+		const newAvailableFrom = formatDateForInput(apartment?.availableFrom);
+		if (newAvailableFrom !== availableFrom) {
+			console.log("[RentStatusModal] Updating availableFrom from apartment prop:", {
+				old: availableFrom,
+				new: newAvailableFrom,
+				raw: apartment?.availableFrom,
+			});
+			setAvailableFrom(newAvailableFrom);
 		}
 	}, [apartment?.availableFrom]);
 	
@@ -97,7 +110,21 @@ export default function RentStatusModal({
 		}
 	};
 
-	const canPublishNow = apartment.status === "WOLNE";
+	// Mieszkanie może być publikowane jeśli:
+	// 1. Status to "WOLNE" LUB
+	// 2. Ma ustawione availableFrom w przyszłości (nawet jeśli status to "WYNAJĘTE" ale będzie wolne za tydzień)
+	const checkCanPublish = (apt) => {
+		if (apt.status === "WOLNE") return true;
+		if (apt.availableFrom) {
+			const availableDate = new Date(apt.availableFrom);
+			const now = new Date();
+			// Jeśli data dostępności jest w przyszłości, można publikować
+			return availableDate > now;
+		}
+		return false;
+	};
+
+	const canPublishNow = checkCanPublish(apartment);
 	const statusWillBeFree = status === "WOLNE";
 	const needsSaveToPublish = statusWillBeFree && apartment.status !== "WOLNE";
 
@@ -106,12 +133,20 @@ export default function RentStatusModal({
 		setPublishSuccess("");
 		if (!canPublishNow) {
 			setPublishError(
-				"Można publikować na Otodom tylko mieszkania ze statusem „Wolne”.",
+				"Można publikować na Otodom tylko mieszkania ze statusem \"Wolne\" lub z ustawioną datą dostępności w przyszłości.",
 			);
 			return;
 		}
 		setPublishing(true);
 		try {
+			// WAŻNE: Przed publikacją pobierz świeże dane z bazy (w tym aktualny availableFrom)
+			// To gwarantuje że Otodom otrzyma najnowsze dane
+			const { data: freshApartment } = await api.get(`/apartments/${apartment._id}`);
+			console.log("[RentStatusModal] Fresh apartment data before publish:", {
+				id: freshApartment._id,
+				availableFrom: freshApartment.availableFrom,
+			});
+			
 			const { data } = await api.post(`/publish/${apartment._id}/otodom`);
 			const successMsg =
 				data?.message ||
@@ -140,6 +175,14 @@ export default function RentStatusModal({
 		}
 		setPublishing(true);
 		try {
+			// WAŻNE: Przed aktualizacją pobierz świeże dane z bazy (w tym aktualny availableFrom)
+			// To gwarantuje że Otodom otrzyma najnowsze dane
+			const { data: freshApartment } = await api.get(`/apartments/${apartment._id}`);
+			console.log("[RentStatusModal] Fresh apartment data before update:", {
+				id: freshApartment._id,
+				availableFrom: freshApartment.availableFrom,
+			});
+			
 			const { data } = await api.put(`/publish/${apartment._id}/otodom`);
 			const successMsg =
 				data?.message || "Ogłoszenie zostało zaktualizowane na Otodom.";
@@ -399,7 +442,7 @@ export default function RentStatusModal({
 							/>
 							<p className='mt-1 text-xs text-slate-500'>
 								Data od kiedy mieszkanie będzie dostępne do wynajęcia
-								(wyświetlana w ogłoszeniu Otodom). Zapisuje się automatycznie.
+								(wyświetlana w ogłoszeniu Otodom).
 							</p>
 						</div>
 					</div>
@@ -408,10 +451,7 @@ export default function RentStatusModal({
 						<p className='text-sm font-semibold text-slate-800 mb-1'>
 							Publikacja Otodom
 						</p>
-						<p className='text-xs text-slate-600 mb-3'>
-							Przycisk jest aktywny tylko, gdy mieszkanie ma status{" "}
-							<span className='font-semibold'>Wolne</span>.
-						</p>
+						
 						{needsSaveToPublish && (
 							<p className='text-xs text-amber-700 mb-3'>
 								Ustawiłeś status „Wolne”, ale nie jest jeszcze zapisany.

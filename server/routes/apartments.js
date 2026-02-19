@@ -97,20 +97,26 @@ router.put("/:id", async (req, res) => {
 		};
 
 		// Konwertuj availableFrom na Date object jeśli jest stringiem (format YYYY-MM-DD)
+		// WAŻNE: Używamy UTC żeby uniknąć problemów ze strefą czasową (data nie powinna się zmieniać)
 		if (req.body.availableFrom) {
 			if (
 				typeof req.body.availableFrom === "string" &&
 				req.body.availableFrom.trim()
 			) {
-				// String w formacie YYYY-MM-DD -> konwertuj na Date
+				// String w formacie YYYY-MM-DD -> konwertuj na Date używając UTC
 				const dateParts = req.body.availableFrom.split("-");
 				if (dateParts.length === 3) {
+					// Używamy Date.UTC żeby uniknąć problemów ze strefą czasową
+					// To gwarantuje że data YYYY-MM-DD zostanie zapisana jako dokładnie ta data w UTC
 					updateData.availableFrom = new Date(
-						parseInt(dateParts[0]),
-						parseInt(dateParts[1]) - 1, // Miesiące są 0-indexowane
-						parseInt(dateParts[2]),
+						Date.UTC(
+							parseInt(dateParts[0]),
+							parseInt(dateParts[1]) - 1, // Miesiące są 0-indexowane
+							parseInt(dateParts[2]),
+						),
 					);
 				} else {
+					// Jeśli format jest inny, spróbuj sparsować jako ISO string
 					updateData.availableFrom = new Date(req.body.availableFrom);
 				}
 			} else {
