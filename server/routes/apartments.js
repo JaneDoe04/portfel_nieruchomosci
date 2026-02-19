@@ -33,8 +33,26 @@ router.get('/:id', async (req, res) => {
 // POST /api/apartments
 router.post('/', async (req, res) => {
   try {
+    // Jeśli brakuje address, zbuduj go z nowych pól (street, streetNumber, postalCode, city)
+    let address = req.body.address;
+    if (!address && (req.body.street || req.body.city)) {
+      const parts = [];
+      if (req.body.street) {
+        const streetWithNumber = req.body.streetNumber
+          ? `${req.body.street} ${req.body.streetNumber}`
+          : req.body.street;
+        parts.push(streetWithNumber);
+      }
+      if (req.body.postalCode || req.body.city) {
+        const cityPart = [req.body.postalCode, req.body.city].filter(Boolean).join(' ');
+        if (cityPart) parts.push(cityPart);
+      }
+      address = parts.join(', ') || req.body.city || '';
+    }
+    
     const apartment = await Apartment.create({
       ...req.body,
+      address: address || req.body.address, // Upewnij się że address jest ustawione
       // W trybie bez logowania pole createdBy zostawiamy puste
       createdBy: null,
     });
@@ -47,9 +65,31 @@ router.post('/', async (req, res) => {
 // PUT /api/apartments/:id
 router.put('/:id', async (req, res) => {
   try {
+    // Jeśli brakuje address, zbuduj go z nowych pól (street, streetNumber, postalCode, city)
+    let address = req.body.address;
+    if (!address && (req.body.street || req.body.city)) {
+      const parts = [];
+      if (req.body.street) {
+        const streetWithNumber = req.body.streetNumber
+          ? `${req.body.street} ${req.body.streetNumber}`
+          : req.body.street;
+        parts.push(streetWithNumber);
+      }
+      if (req.body.postalCode || req.body.city) {
+        const cityPart = [req.body.postalCode, req.body.city].filter(Boolean).join(' ');
+        if (cityPart) parts.push(cityPart);
+      }
+      address = parts.join(', ') || req.body.city || '';
+    }
+    
+    const updateData = {
+      ...req.body,
+      ...(address && { address }), // Zaktualizuj address tylko jeśli został zbudowany
+    };
+    
     const apartment = await Apartment.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
     if (!apartment) {

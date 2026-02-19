@@ -11,7 +11,10 @@ const STATUS_OPTIONS = [
 export default function ApartmentForm({ apartment = null, onSave, onClose }) {
   const [form, setForm] = useState({
     title: '',
-    address: '',
+    street: '',
+    streetNumber: '',
+    postalCode: '',
+    city: '',
     price: '',
     description: '',
     area: '',
@@ -35,9 +38,46 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
 
   useEffect(() => {
     if (apartment) {
+      // Jeśli mieszkanie ma nowe pola (street, streetNumber, etc.), użyj ich
+      // W przeciwnym razie spróbuj sparsować z address (kompatybilność wsteczna)
+      let street = apartment.street || '';
+      let streetNumber = apartment.streetNumber || '';
+      let postalCode = apartment.postalCode || '';
+      let city = apartment.city || '';
+      
+      // Jeśli brakuje nowych pól, spróbuj sparsować z address
+      if (!street && !city && apartment.address) {
+        const addressParts = apartment.address.split(',');
+        if (addressParts.length >= 2) {
+          // Parsuj "ul. Marszałkowska 15" -> "Marszałkowska" i "15"
+          const streetPart = addressParts[0].trim();
+          const streetMatch = streetPart.match(/^(ul\.|al\.|aleja|pl\.|os\.)?\s*(.+?)\s+(\d+[a-zA-Z]?(\s*\/\s*\d+)?)$/i);
+          if (streetMatch) {
+            street = streetMatch[2].trim();
+            streetNumber = streetMatch[3].trim();
+          } else {
+            // Jeśli nie ma numeru, całość to ulica
+            street = streetPart.replace(/^(ul\.|al\.|aleja|pl\.|os\.)\s*/i, '').trim();
+          }
+          
+          // Ostatnia część to miasto (może zawierać kod pocztowy)
+          const cityPart = addressParts[addressParts.length - 1].trim();
+          const postalMatch = cityPart.match(/^(\d{2}-\d{3})\s+(.+)$/);
+          if (postalMatch) {
+            postalCode = postalMatch[1];
+            city = postalMatch[2];
+          } else {
+            city = cityPart.replace(/\b\d{2}-\d{3}\b/g, '').trim();
+          }
+        }
+      }
+      
       setForm({
         title: apartment.title || '',
-        address: apartment.address || '',
+        street,
+        streetNumber,
+        postalCode,
+        city,
         price: apartment.price ?? '',
         description: apartment.description || '',
         area: apartment.area ?? '',
@@ -151,8 +191,8 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     const price = Number(form.price);
     const area = Number(form.area);
     const numberOfRooms = form.numberOfRooms ? Number(form.numberOfRooms) : null;
-    if (!form.title.trim() || !form.address.trim()) {
-      setError('Tytuł i adres są wymagane.');
+    if (!form.title.trim() || !form.street.trim() || !form.city.trim()) {
+      setError('Tytuł, ulica i miasto są wymagane.');
       return;
     }
     if (isNaN(price) || price < 0 || isNaN(area) || area < 0) {
@@ -165,9 +205,27 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     }
     setSaving(true);
     try {
+      // Buduj pełny adres z osobnych pól (dla kompatybilności wstecznej)
+      const addressParts = [];
+      if (form.street.trim()) {
+        const streetWithNumber = form.streetNumber.trim()
+          ? `${form.street.trim()} ${form.streetNumber.trim()}`
+          : form.street.trim();
+        addressParts.push(streetWithNumber);
+      }
+      if (form.postalCode.trim() || form.city.trim()) {
+        const cityPart = [form.postalCode.trim(), form.city.trim()].filter(Boolean).join(' ');
+        if (cityPart) addressParts.push(cityPart);
+      }
+      const fullAddress = addressParts.join(', ') || form.city.trim();
+      
       const payload = {
         title: form.title.trim(),
-        address: form.address.trim(),
+        address: fullAddress, // Pełny adres dla kompatybilności wstecznej
+        street: form.street.trim() || undefined,
+        streetNumber: form.streetNumber.trim() || undefined,
+        postalCode: form.postalCode.trim() || undefined,
+        city: form.city.trim() || undefined,
         price,
         description: form.description.trim(),
         area,
@@ -229,16 +287,52 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
                 placeholder="np. Mieszkanie 2-pokojowe, Śródmieście"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Adres *</label>
-              <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="ul. Przykładowa 1, 00-001 Warszawa"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ulica *</label>
+                <input
+                  type="text"
+                  name="street"
+                  value={form.street}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="np. Marszałkowska (bez 'ul.' lub 'al.')"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Numer</label>
+                <input
+                  type="text"
+                  name="streetNumber"
+                  value={form.streetNumber}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="np. 15"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Kod pocztowy</label>
+                <input
+                  type="text"
+                  name="postalCode"
+                  value={form.postalCode}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="00-001"
+                  pattern="\d{2}-\d{3}"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Miasto *</label>
+                <input
+                  type="text"
+                  name="city"
+                  value={form.city}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="np. Warszawa"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>

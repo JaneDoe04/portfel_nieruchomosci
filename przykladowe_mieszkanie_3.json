@@ -1,0 +1,25 @@
+{
+  "title": "Mieszkanie 4-pokojowe, Wola, Warszawa",
+  "address": "ul. Chłodna 25, 00-891 Warszawa",
+  "price": 5500,
+  "description": "Duże mieszkanie 4-pokojowe na Woli. Mieszkanie znajduje się na 6. piętrze w nowoczesnym budynku z windą. W pełni wyremontowane, z nowoczesnym wyposażeniem. Doskonała lokalizacja - blisko centrum, ale w spokojnej okolicy. Mieszkanie ma duży balkon z widokiem na miasto. Idealne dla rodziny z dziećmi.",
+  "area": 95,
+  "numberOfRooms": 4,
+  "heating": "electrical",
+  "floor": "6th-floor",
+  "finishingStatus": "ready-to-use",
+  "availableFrom": "2026-03-15",
+  "rentCharges": 900,
+  "deposit": 5500,
+  "hasElevator": true,
+  "streetName": "Chłodna",
+  "cityId": 26,
+  "lat": 52.2300,
+  "lon": 20.9900,
+  "photos": [
+    "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800",
+    "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?w=800",
+    "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800",
+    "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800"
+  ]
+}

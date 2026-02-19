@@ -1,0 +1,24 @@
+{
+  "title": "Mieszkanie 3-pokojowe, Śródmieście, Warszawa",
+  "address": "ul. Marszałkowska 15, 00-624 Warszawa",
+  "price": 4500,
+  "description": "Przestronne mieszkanie 3-pokojowe w centrum Warszawy. Mieszkanie znajduje się na 4. piętrze w budynku z windą. W pełni wyposażone, gotowe do zamieszkania. Doskonała lokalizacja - blisko komunikacji miejskiej, sklepów i restauracji. Mieszkanie jest słoneczne, z balkonem. Idealne dla rodziny lub profesjonalistów.",
+  "area": 75,
+  "numberOfRooms": 3,
+  "heating": "urban",
+  "floor": "4th-floor",
+  "finishingStatus": "ready-to-use",
+  "availableFrom": "2026-03-01",
+  "rentCharges": 800,
+  "deposit": 4500,
+  "hasElevator": true,
+  "streetName": "Marszałkowska",
+  "cityId": 26,
+  "lat": 52.2297,
+  "lon": 21.0122,
+  "photos": [
+    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
+    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800",
+    "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800"
+  ]
+}

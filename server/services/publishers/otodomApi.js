@@ -204,18 +204,37 @@ async function buildOtodomLocation(apartment) {
 	}).lean();
 	const apiKey = appCreds?.apiKey;
 
-	// street_name: parse from address if not provided
-	const parsedStreetName = parseStreetNameFromAddress(apartment.address);
-	const streetName =
-		(apartment.streetName && apartment.streetName.trim()) ||
-		(parsedStreetName && parsedStreetName.trim()) ||
-		null;
+	// street_name: preferuj nowe pola (street), potem streetName, potem parsuj z address
+	let streetName = null;
+	if (apartment.street && apartment.street.trim()) {
+		// Użyj pola street (bez prefiksów typu "ul.", "al.")
+		streetName = apartment.street.trim();
+	} else if (apartment.streetName && apartment.streetName.trim()) {
+		// Fallback na stare pole streetName
+		streetName = apartment.streetName.trim();
+	} else if (apartment.address) {
+		// Ostateczny fallback: parsuj z address (kompatybilność wsteczna)
+		const parsedStreetName = parseStreetNameFromAddress(apartment.address);
+		streetName = parsedStreetName && parsedStreetName.trim() ? parsedStreetName.trim() : null;
+	}
+
+	// city: preferuj nowe pole city, potem parsuj z address
+	let cityName = null;
+	if (apartment.city && apartment.city.trim()) {
+		cityName = apartment.city.trim();
+	} else if (apartment.address) {
+		cityName = parseCityFromAddress(apartment.address);
+	}
 
 	console.log("[otodom/location] Building location", {
 		address: apartment.address,
+		street: apartment.street,
+		streetNumber: apartment.streetNumber,
+		city: apartment.city,
+		postalCode: apartment.postalCode,
 		streetNameFromModel: apartment.streetName,
-		parsedStreetName,
 		finalStreetName: streetName,
+		finalCityName: cityName,
 		lat: apartment.lat,
 		lon: apartment.lon,
 		cityId: apartment.cityId,
@@ -223,17 +242,14 @@ async function buildOtodomLocation(apartment) {
 
 	// city_id: if not provided, resolve via OLX Group Locations API using X-API-KEY
 	let cityId = apartment.cityId != null ? Number(apartment.cityId) : null;
-	if ((!cityId || Number.isNaN(cityId)) && apiKey) {
-		const cityName = parseCityFromAddress(apartment.address);
-		if (cityName) {
-			try {
-				cityId = await resolveCityIdByName(apiKey, cityName);
-			} catch (e) {
-				console.warn("[otodom/location] city resolve failed", {
-					cityName,
-					err: e.message,
-				});
-			}
+	if ((!cityId || Number.isNaN(cityId)) && apiKey && cityName) {
+		try {
+			cityId = await resolveCityIdByName(apiKey, cityName);
+		} catch (e) {
+			console.warn("[otodom/location] city resolve failed", {
+				cityName,
+				err: e.message,
+			});
 		}
 	}
 	if (!cityId || Number.isNaN(cityId)) {

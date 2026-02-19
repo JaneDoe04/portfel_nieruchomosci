@@ -21,6 +21,31 @@ const apartmentSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      comment: 'Pełny adres (generowany automatycznie z street, streetNumber, postalCode, city)',
+    },
+    street: {
+      type: String,
+      default: '',
+      trim: true,
+      comment: 'Nazwa ulicy (bez prefiksów typu "ul.", "al.")',
+    },
+    streetNumber: {
+      type: String,
+      default: '',
+      trim: true,
+      comment: 'Numer budynku/mieszkania',
+    },
+    postalCode: {
+      type: String,
+      default: '',
+      trim: true,
+      comment: 'Kod pocztowy (format: XX-XXX)',
+    },
+    city: {
+      type: String,
+      default: '',
+      trim: true,
+      comment: 'Miasto',
     },
     price: {
       type: Number,

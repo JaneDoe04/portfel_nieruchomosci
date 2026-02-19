@@ -1,0 +1,23 @@
+{
+  "title": "Mieszkanie 2-pokojowe, Mokotów, Warszawa",
+  "address": "ul. Puławska 28, 02-515 Warszawa",
+  "price": 3200,
+  "description": "Przytulne mieszkanie 2-pokojowe na Mokotowie. Mieszkanie znajduje się na parterze. Wyremontowane, w stanie bardzo dobrym. Blisko metra i centrum handlowego. Idealne dla studentów lub młodych par. Mieszkanie jest ciche, z dostępem do ogrodu.",
+  "area": 45,
+  "numberOfRooms": 2,
+  "heating": "gas",
+  "floor": "ground-floor",
+  "finishingStatus": "ready-to-use",
+  "availableFrom": "2026-02-25",
+  "rentCharges": 600,
+  "deposit": 3200,
+  "hasElevator": false,
+  "streetName": "Puławska",
+  "cityId": 26,
+  "lat": 52.1900,
+  "lon": 21.0200,
+  "photos": [
+    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800",
+    "https://images.unsplash.com/photo-1505843513577-22bb7d21e455?w=800"
+  ]
+}
