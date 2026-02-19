@@ -14,6 +14,7 @@ import {
 	deleteOtodomAdvert,
 	getOtodomAdvertStatus,
 	getOtodomAccessToken,
+	buildOtodomLocation,
 } from "../services/publishers/otodomApi.js";
 
 const router = express.Router();
@@ -259,6 +260,28 @@ router.post("/:apartmentId/otodom", async (req, res) => {
 		if (apartment.status !== "WOLNE") {
 			return res.status(400).json({
 				message: "Można publikować tylko mieszkania ze statusem WOLNE.",
+			});
+		}
+
+		// Przed publikacją: upewnij się że mieszkanie ma geokodowane współrzędne
+		// Jeśli brakuje lat/lon, geokoduj teraz (buildOtodomLocation robi to automatycznie, ale zapiszmy do mieszkania)
+		const location = await buildOtodomLocation(apartment);
+		if (location.lat && location.lon && (!apartment.lat || !apartment.lon)) {
+			apartment.lat = location.lat;
+			apartment.lon = location.lon;
+			// Zapisz też streetName i cityId jeśli brakuje
+			if (!apartment.streetName && location.custom_fields?.street_name) {
+				apartment.streetName = location.custom_fields.street_name;
+			}
+			if (!apartment.cityId && location.custom_fields?.city_id) {
+				apartment.cityId = location.custom_fields.city_id;
+			}
+			await apartment.save();
+			console.log("[publish/otodom] Saved geocoded coordinates to apartment", {
+				lat: apartment.lat,
+				lon: apartment.lon,
+				streetName: apartment.streetName,
+				cityId: apartment.cityId,
 			});
 		}
 

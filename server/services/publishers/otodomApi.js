@@ -342,6 +342,8 @@ async function buildOtodomLocation(apartment) {
 	const finalCityId = cityId && !Number.isNaN(cityId) ? Number(cityId) : 26; // fallback Warszawa
 
 	// OLX Group API wymaga location z lat/lon/exact + custom_fields (oba pola razem)
+	// WAŻNE: Otodom może używać własnego geokodowania na podstawie street_name + city_id,
+	// więc upewnijmy się że mamy dokładne dane
 	const location = {
 		exact: true,
 		lat: Number(lat),
@@ -349,11 +351,20 @@ async function buildOtodomLocation(apartment) {
 		custom_fields: {
 			city_id: finalCityId,
 			street_name: finalStreetName,
+			// Dodaj kod pocztowy jeśli dostępny (może pomóc w dokładniejszym geokodowaniu)
+			...(apartment.postalCode && apartment.postalCode.trim() && {
+				postal_code: apartment.postalCode.trim(),
+			}),
 		},
 	};
 
+	console.log("[otodom/location] Final location object:", JSON.stringify(location, null, 2));
+
 	return location;
 }
+
+// Eksportuj buildOtodomLocation dla użycia w innych modułach (np. do zapisywania współrzędnych przed publikacją)
+export { buildOtodomLocation };
 
 /**
  * Pobierz lub odśwież access token dla Otodom dla KONKRETNEGO UŻYTKOWNIKA
