@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	X,
 	UploadCloud,
@@ -40,6 +40,24 @@ export default function RentStatusModal({
 	const [availableFrom, setAvailableFrom] = useState(
 		apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : "",
 	);
+	
+	// Odśwież availableFrom gdy apartment się zmienia (np. po zapisaniu przez onRefresh)
+	useEffect(() => {
+		if (apartment?.availableFrom) {
+			const newAvailableFrom = apartment.availableFrom.slice(0, 10);
+			if (newAvailableFrom !== availableFrom) {
+				console.log("[RentStatusModal] Updating availableFrom from apartment prop:", {
+					old: availableFrom,
+					new: newAvailableFrom,
+				});
+				setAvailableFrom(newAvailableFrom);
+			}
+		} else if (apartment && !apartment.availableFrom && availableFrom) {
+			// Jeśli apartment nie ma availableFrom ale state ma, wyczyść
+			setAvailableFrom("");
+		}
+	}, [apartment?.availableFrom]);
+	
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 	const [publishing, setPublishing] = useState(false);

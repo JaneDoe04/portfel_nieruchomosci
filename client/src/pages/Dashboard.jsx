@@ -223,20 +223,26 @@ export default function Dashboard() {
             setSelected(null);
             fetchApartments();
           }}
-          onRefresh={() => {
+          onRefresh={async () => {
             // Tylko odśwież dane bez zamykania modala (dla automatycznego zapisu)
-            fetchApartments().then(() => {
-              // Po odświeżeniu, zaktualizuj selected z najnowszymi danymi
-              api.get(`/apartments/${selected._id}`).then(({ data }) => {
-                setSelected(data);
-                
-                // Wyślij event do innych komponentów (np. ApartmentList) żeby odświeżyły dane
-                // Używamy custom event żeby komunikować się między komponentami
-                window.dispatchEvent(new CustomEvent('apartmentUpdated', { 
-                  detail: { apartmentId: data._id, apartment: data } 
-                }));
+            try {
+              await fetchApartments();
+              // Po odświeżeniu, zaktualizuj selected z najnowszymi danymi z bazy
+              const { data } = await api.get(`/apartments/${selected._id}`);
+              console.log("[Dashboard] Refreshed apartment data:", {
+                id: data._id,
+                availableFrom: data.availableFrom,
               });
-            });
+              setSelected(data);
+              
+              // Wyślij event do innych komponentów (np. ApartmentList) żeby odświeżyły dane
+              // Używamy custom event żeby komunikować się między komponentami
+              window.dispatchEvent(new CustomEvent('apartmentUpdated', { 
+                detail: { apartmentId: data._id, apartment: data } 
+              }));
+            } catch (err) {
+              console.error("[Dashboard] Error refreshing apartment:", err);
+            }
           }}
         />
       )}
