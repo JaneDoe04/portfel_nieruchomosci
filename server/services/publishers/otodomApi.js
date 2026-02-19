@@ -816,8 +816,8 @@ export async function publishOtodomAdvert(apartment, userId) {
 	}
 
 	// Zgodnie z dokumentacją OLX Group API:
-	// - price = cena główna (dla wynajmu: miesięczna cena)
-	// - rent_price = opcjonalna cena czynszu (Otodom może z tego pokazywać "Czynsz" w UI)
+	// - price = cena główna (miesięczny koszt wynajmu mieszkania)
+	// - rent_price = czynsz (dodatkowe opłaty: media, ogrzewanie itd.) – z pola rentCharges, osobno od ceny
 	// - deposit_price = kaucja – osobne pole (dla kategorii "for rent")
 	const priceObject = {
 		value: Number(apartment.price),
@@ -830,11 +830,14 @@ export async function publishOtodomAdvert(apartment, userId) {
 		title, // Już zwalidowany: 5-70 znaków, no uppercase
 		description,
 		price: priceObject,
-		// Czynsz – wysyłamy rent_price, żeby na Otodom wypełnić pole "Czynsz" (Otodom/Storia)
-		rent_price: {
-			value: Number(apartment.price),
-			currency: "PLN",
-		},
+		// Czynsz = dodatkowe opłaty (media, ogrzewanie) – tylko gdy użytkownik ustawił rentCharges
+		...(apartment.rentCharges != null &&
+			apartment.rentCharges > 0 && {
+				rent_price: {
+					value: Number(apartment.rentCharges),
+					currency: "PLN",
+				},
+			}),
 		// Kaucja – API wymaga deposit_price na najwyższym poziomie (dla kategorii "for rent")
 		...(apartment.deposit != null &&
 			apartment.deposit > 0 && {
@@ -995,7 +998,7 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 	// Buduj atrybuty zgodnie z taksonomią Otodom
 	const attributes = buildOtodomAttributes(apartment);
 
-	// price + rent_price (Czynsz) + deposit_price (Kaucja)
+	// price = cena mieszkania; rent_price = czynsz (opłaty dodatkowe); deposit_price = kaucja
 	const priceObject = {
 		value: Number(apartment.price),
 		currency: "PLN",
@@ -1008,10 +1011,13 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 		title: title.substring(0, 70),
 		description,
 		price: priceObject,
-		rent_price: {
-			value: Number(apartment.price),
-			currency: "PLN",
-		},
+		...(apartment.rentCharges != null &&
+			apartment.rentCharges > 0 && {
+				rent_price: {
+					value: Number(apartment.rentCharges),
+					currency: "PLN",
+				},
+			}),
 		...(apartment.deposit != null &&
 			apartment.deposit > 0 && {
 				deposit_price: {
