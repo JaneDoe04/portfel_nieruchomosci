@@ -82,16 +82,60 @@ router.put('/:id', async (req, res) => {
       address = parts.join(', ') || req.body.city || '';
     }
     
+    // Przygotuj updateData - upewnij się że availableFrom jest poprawnie sformatowane
     const updateData = {
       ...req.body,
       ...(address && { address }), // Zaktualizuj address tylko jeśli został zbudowany
     };
+    
+    // Konwertuj availableFrom na Date object jeśli jest stringiem (format YYYY-MM-DD)
+    if (req.body.availableFrom) {
+      if (typeof req.body.availableFrom === 'string' && req.body.availableFrom.trim()) {
+        // String w formacie YYYY-MM-DD -> konwertuj na Date
+        const dateParts = req.body.availableFrom.split('-');
+        if (dateParts.length === 3) {
+          updateData.availableFrom = new Date(
+            parseInt(dateParts[0]),
+            parseInt(dateParts[1]) - 1, // Miesiące są 0-indexowane
+            parseInt(dateParts[2])
+          );
+        } else {
+          updateData.availableFrom = new Date(req.body.availableFrom);
+        }
+      } else {
+        updateData.availableFrom = req.body.availableFrom;
+      }
+    } else if (req.body.hasOwnProperty('availableFrom') && !req.body.availableFrom) {
+      // Jeśli explicitly ustawiono na null/undefined/pusty string, zapisz jako null
+      updateData.availableFrom = null;
+    }
+    
+    // Loguj co przychodzi w req.body (dla debugowania)
+    console.log("[apartments/PUT] Update data:", {
+      id: req.params.id,
+      availableFromRaw: req.body.availableFrom,
+      availableFromProcessed: updateData.availableFrom,
+      availableFromType: typeof updateData.availableFrom,
+      allFields: Object.keys(req.body),
+    });
     
     const apartment = await Apartment.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     );
+    
+    if (!apartment) {
+      return res.status(404).json({ message: 'Mieszkanie nie znalezione.' });
+    }
+    
+    // Loguj co zostało zapisane
+    console.log("[apartments/PUT] Apartment after update:", {
+      id: apartment._id.toString(),
+      availableFrom: apartment.availableFrom,
+      availableFromType: typeof apartment.availableFrom,
+      availableFromISO: apartment.availableFrom ? apartment.availableFrom.toISOString() : null,
+    });
     if (!apartment) {
       return res.status(404).json({ message: 'Mieszkanie nie znalezione.' });
     }

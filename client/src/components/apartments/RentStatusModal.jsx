@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { X, UploadCloud, RefreshCw, Trash2, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import {
+	X,
+	UploadCloud,
+	RefreshCw,
+	Trash2,
+	CheckCircle2,
+	AlertCircle,
+	Info,
+} from "lucide-react";
 import api from "../../api/axios";
 import StatusBadge from "./StatusBadge";
 
@@ -12,19 +20,25 @@ const STATUS_OPTIONS = [
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 const getMainPhotoUrl = (apt) => {
-	const raw = Array.isArray(apt.photos) && apt.photos.length > 0 ? apt.photos[0] : null;
+	const raw =
+		Array.isArray(apt.photos) && apt.photos.length > 0 ? apt.photos[0] : null;
 	if (!raw) return null;
 	if (raw.startsWith("http")) return raw;
 	return `${API_BASE}${raw}`;
 };
 
-export default function RentStatusModal({ apartment, onClose, onUpdated, onRefresh }) {
+export default function RentStatusModal({
+	apartment,
+	onClose,
+	onUpdated,
+	onRefresh,
+}) {
 	const [status, setStatus] = useState(apartment.status || "WOLNE");
 	const [contractEndDate, setContractEndDate] = useState(
-		apartment.contractEndDate ? apartment.contractEndDate.slice(0, 10) : ""
+		apartment.contractEndDate ? apartment.contractEndDate.slice(0, 10) : "",
 	);
 	const [availableFrom, setAvailableFrom] = useState(
-		apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : ""
+		apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : "",
 	);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
@@ -49,14 +63,17 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 			await api.put(`/apartments/${apartment._id}`, {
 				status,
 				// jeśli mieszkanie NIE jest wynajęte, nie trzymamy daty końca umowy
-				contractEndDate: status === "WYNAJĘTE" && contractEndDate ? contractEndDate : null,
+				contractEndDate:
+					status === "WYNAJĘTE" && contractEndDate ? contractEndDate : null,
 				// dostępne od - data kiedy mieszkanie będzie dostępne do wynajęcia
 				availableFrom: availableFrom || null,
 			});
 			onUpdated?.();
 		} catch (err) {
 			console.error(err);
-			alert(err.response?.data?.message || "Nie udało się zaktualizować wynajmu.");
+			alert(
+				err.response?.data?.message || "Nie udało się zaktualizować wynajmu.",
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -70,18 +87,23 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 		setPublishError("");
 		setPublishSuccess("");
 		if (!canPublishNow) {
-			setPublishError("Można publikować na Otodom tylko mieszkania ze statusem „Wolne”.");
+			setPublishError(
+				"Można publikować na Otodom tylko mieszkania ze statusem „Wolne”.",
+			);
 			return;
 		}
 		setPublishing(true);
 		try {
 			const { data } = await api.post(`/publish/${apartment._id}/otodom`);
-			const successMsg = data?.message || "Ogłoszenie zostało wysłane do Otodom. Publikacja może potrwać kilka minut.";
+			const successMsg =
+				data?.message ||
+				"Ogłoszenie zostało wysłane do Otodom. Publikacja może potrwać kilka minut.";
 			setPublishSuccess(successMsg);
 			alert(`✅ ${successMsg}`);
 			onUpdated?.();
 		} catch (err) {
-			const errorMsg = err.response?.data?.message || "Nie udało się opublikować na Otodom.";
+			const errorMsg =
+				err.response?.data?.message || "Nie udało się opublikować na Otodom.";
 			setPublishError(errorMsg);
 			alert(`❌ ${errorMsg}`);
 		} finally {
@@ -93,18 +115,22 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 		setPublishError("");
 		setPublishSuccess("");
 		if (!apartment.externalIds?.otodom) {
-			setPublishError("Brak ogłoszenia Otodom do aktualizacji (najpierw opublikuj).");
+			setPublishError(
+				"Brak ogłoszenia Otodom do aktualizacji (najpierw opublikuj).",
+			);
 			return;
 		}
 		setPublishing(true);
 		try {
 			const { data } = await api.put(`/publish/${apartment._id}/otodom`);
-			const successMsg = data?.message || "Ogłoszenie zostało zaktualizowane na Otodom.";
+			const successMsg =
+				data?.message || "Ogłoszenie zostało zaktualizowane na Otodom.";
 			setPublishSuccess(successMsg);
 			alert(`✅ ${successMsg}`);
 			onUpdated?.();
 		} catch (err) {
-			const errorMsg = err.response?.data?.message || "Nie udało się zaktualizować na Otodom.";
+			const errorMsg =
+				err.response?.data?.message || "Nie udało się zaktualizować na Otodom.";
 			setPublishError(errorMsg);
 			alert(`❌ ${errorMsg}`);
 		} finally {
@@ -119,16 +145,19 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 			setPublishError("Brak ogłoszenia Otodom do usunięcia.");
 			return;
 		}
-		if (!window.confirm("Czy na pewno chcesz usunąć ogłoszenie z Otodom?")) return;
+		if (!window.confirm("Czy na pewno chcesz usunąć ogłoszenie z Otodom?"))
+			return;
 		setPublishing(true);
 		try {
 			const { data } = await api.delete(`/publish/${apartment._id}/otodom`);
-			const successMsg = data?.message || "Ogłoszenie zostało usunięte z Otodom.";
+			const successMsg =
+				data?.message || "Ogłoszenie zostało usunięte z Otodom.";
 			setPublishSuccess(successMsg);
 			alert(`✅ ${successMsg}`);
 			onUpdated?.();
 		} catch (err) {
-			const errorMsg = err.response?.data?.message || "Nie udało się usunąć z Otodom.";
+			const errorMsg =
+				err.response?.data?.message || "Nie udało się usunąć z Otodom.";
 			setPublishError(errorMsg);
 			alert(`❌ ${errorMsg}`);
 		} finally {
@@ -148,17 +177,21 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 		try {
 			const { data } = await api.get(`/publish/${apartment._id}/otodom/status`);
 			setStatusInfo(data.status);
-			
+
 			if (data.isTransactionId || data.message) {
 				// To jest transaction_id - webhook jeszcze nie przyszedł
-				setPublishSuccess(data.message || "Ogłoszenie jest w trakcie publikacji. Czekamy na webhook z Otodom.");
+				setPublishSuccess(
+					data.message ||
+						"Ogłoszenie jest w trakcie publikacji. Czekamy na webhook z Otodom.",
+				);
 			} else {
 				// To jest object_id - mamy prawdziwy status
-				const statusMsg = `Status: ${data.status?.state?.code || data.status?.last_action_status || 'Nieznany'}`;
+				const statusMsg = `Status: ${data.status?.state?.code || data.status?.last_action_status || "Nieznany"}`;
 				setPublishSuccess(statusMsg);
 			}
 		} catch (err) {
-			const errorMsg = err.response?.data?.message || "Nie udało się sprawdzić statusu.";
+			const errorMsg =
+				err.response?.data?.message || "Nie udało się sprawdzić statusu.";
 			setPublishError(errorMsg);
 		} finally {
 			setCheckingStatus(false);
@@ -290,46 +323,81 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 									const newDate = e.target.value;
 									const previousDate = availableFrom; // Zapisz poprzednią wartość
 									setAvailableFrom(newDate); // Najpierw zaktualizuj UI
-									
+
 									// Automatycznie zapisz datę bez czekania na "Zapisz zmiany"
 									// To jest ważne dla publikacji - data musi być dostępna od razu
 									try {
-										console.log("[RentStatusModal] Zapisuję availableFrom:", newDate || null);
-										const response = await api.put(`/apartments/${apartment._id}`, {
-											availableFrom: newDate || null,
-										});
-										console.log("[RentStatusModal] ✅ Data dostępności zapisana:", response.data);
+										// Konwertuj pusty string na null (Mongoose potrzebuje null zamiast "")
+										const dateToSave = newDate && newDate.trim() ? newDate : null;
 										
+										console.log(
+											"[RentStatusModal] Zapisuję availableFrom:",
+											{
+												raw: newDate,
+												toSave: dateToSave,
+												apartmentId: apartment._id,
+											},
+										);
+										
+										const response = await api.put(
+											`/apartments/${apartment._id}`,
+											{
+												availableFrom: dateToSave,
+											},
+										);
+										
+										console.log(
+											"[RentStatusModal] ✅ Data dostępności zapisana:",
+											{
+												requested: dateToSave,
+												saved: response.data?.availableFrom,
+												fullResponse: response.data,
+											},
+										);
+
 										// Odśwież dane mieszkania w tle (bez zamykania modala)
 										// Używamy onRefresh zamiast onUpdated żeby nie zamykać modala
 										if (onRefresh) {
 											onRefresh();
 										}
 									} catch (err) {
-										console.error("[RentStatusModal] ❌ Błąd zapisu daty dostępności:", err);
-										console.error("[RentStatusModal] Response:", err.response?.data);
+										console.error(
+											"[RentStatusModal] ❌ Błąd zapisu daty dostępności:",
+											err,
+										);
+										console.error(
+											"[RentStatusModal] Response:",
+											err.response?.data,
+										);
 										// Wróć do poprzedniej wartości przy błędzie
 										setAvailableFrom(previousDate);
-										alert(`Nie udało się zapisać daty dostępności: ${err.response?.data?.message || err.message}`);
+										alert(
+											`Nie udało się zapisać daty dostępności: ${err.response?.data?.message || err.message}`,
+										);
 									}
 								}}
 								className='w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm'
-								placeholder="Data dostępności mieszkania"
+								placeholder='Data dostępności mieszkania'
 							/>
 							<p className='mt-1 text-xs text-slate-500'>
-								Data od kiedy mieszkanie będzie dostępne do wynajęcia (wyświetlana w ogłoszeniu Otodom). Zapisuje się automatycznie.
+								Data od kiedy mieszkanie będzie dostępne do wynajęcia
+								(wyświetlana w ogłoszeniu Otodom). Zapisuje się automatycznie.
 							</p>
 						</div>
 					</div>
 
 					<div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>
-						<p className='text-sm font-semibold text-slate-800 mb-1'>Publikacja Otodom</p>
+						<p className='text-sm font-semibold text-slate-800 mb-1'>
+							Publikacja Otodom
+						</p>
 						<p className='text-xs text-slate-600 mb-3'>
-							Przycisk jest aktywny tylko, gdy mieszkanie ma status <span className='font-semibold'>Wolne</span>.
+							Przycisk jest aktywny tylko, gdy mieszkanie ma status{" "}
+							<span className='font-semibold'>Wolne</span>.
 						</p>
 						{needsSaveToPublish && (
 							<p className='text-xs text-amber-700 mb-3'>
-								Ustawiłeś status „Wolne”, ale nie jest jeszcze zapisany. Najpierw kliknij „Zapisz zmiany”, a potem publikuj.
+								Ustawiłeś status „Wolne”, ale nie jest jeszcze zapisany.
+								Najpierw kliknij „Zapisz zmiany”, a potem publikuj.
 							</p>
 						)}
 						<div className='flex flex-wrap gap-2'>
@@ -346,7 +414,9 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 							<button
 								type='button'
 								onClick={handleUpdateOtodom}
-								disabled={publishing || saving || !apartment.externalIds?.otodom}
+								disabled={
+									publishing || saving || !apartment.externalIds?.otodom
+								}
 								className='inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 text-sm'
 								title='Aktualizuj ogłoszenie na Otodom'
 							>
@@ -356,7 +426,9 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 							<button
 								type='button'
 								onClick={handleDeleteOtodom}
-								disabled={publishing || saving || !apartment.externalIds?.otodom}
+								disabled={
+									publishing || saving || !apartment.externalIds?.otodom
+								}
 								className='inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 text-sm'
 								title='Usuń ogłoszenie z Otodom'
 							>
@@ -378,7 +450,9 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 						</div>
 						{statusInfo && (
 							<div className='mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200'>
-								<p className='text-xs font-semibold text-blue-800 mb-2'>Szczegóły statusu:</p>
+								<p className='text-xs font-semibold text-blue-800 mb-2'>
+									Szczegóły statusu:
+								</p>
 								<pre className='text-xs text-blue-700 overflow-auto max-h-40'>
 									{JSON.stringify(statusInfo, null, 2)}
 								</pre>
@@ -393,7 +467,9 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 						{publishSuccess && (
 							<div className='mt-3 flex items-start gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200'>
 								<CheckCircle2 className='w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5' />
-								<p className='text-sm text-emerald-700 flex-1'>{publishSuccess}</p>
+								<p className='text-sm text-emerald-700 flex-1'>
+									{publishSuccess}
+								</p>
 							</div>
 						)}
 					</div>
@@ -422,4 +498,3 @@ export default function RentStatusModal({ apartment, onClose, onUpdated, onRefre
 		</div>
 	);
 }
-
