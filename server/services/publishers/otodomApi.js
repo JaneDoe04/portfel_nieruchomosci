@@ -180,20 +180,26 @@ async function resolveLatLonWithOtodomAPI(apiKey, cityId, streetName) {
 }
 
 async function resolveLatLonWithNominatim(address) {
-	const enabled =
-		String(process.env.OTODOM_GEOCODE || "").toLowerCase() === "true";
-	if (!enabled) return null;
+	// Nominatim jest zawsze dostępny (publiczne API), nie wymaga zmiennej środowiskowej
+	// Używamy go jako głównej metody geokodowania, bo daje dokładne współrzędne dla konkretnych adresów
 	if (!address) return null;
-	const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(address)}`;
-	const { data } = await axios.get(url, {
-		headers: {
-			"User-Agent": "PortfelNieruchomosci/1.0 (otodom integration)",
-		},
-		timeout: 15000,
-	});
-	const first = Array.isArray(data) ? data[0] : null;
-	if (!first?.lat || !first?.lon) return null;
-	return { lat: Number(first.lat), lon: Number(first.lon) };
+	
+	try {
+		const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q=${encodeURIComponent(address)}&countrycodes=pl`;
+		const { data } = await axios.get(url, {
+			headers: {
+				"User-Agent": "PortfelNieruchomosci/1.0 (otodom integration)",
+				"Accept-Language": "pl",
+			},
+			timeout: 15000,
+		});
+		const first = Array.isArray(data) ? data[0] : null;
+		if (!first?.lat || !first?.lon) return null;
+		return { lat: Number(first.lat), lon: Number(first.lon) };
+	} catch (e) {
+		console.warn("[otodom/geocode] Nominatim error", e.message);
+		return null;
+	}
 }
 
 async function buildOtodomLocation(apartment) {
@@ -260,40 +266,64 @@ async function buildOtodomLocation(apartment) {
 	let lat = apartment.lat != null ? Number(apartment.lat) : null;
 	let lon = apartment.lon != null ? Number(apartment.lon) : null;
 
-	// Jeśli brakuje lat/lon, geokoduj używając Otodom Locations API (preferowane)
-	if ((lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) && apiKey && cityId && streetName) {
-		try {
-			const geo = await resolveLatLonWithOtodomAPI(apiKey, cityId, streetName);
-			if (geo?.lat && geo?.lon) {
-				lat = geo.lat;
-				lon = geo.lon;
-				console.log("[otodom/location] Geocoded via Otodom API", {
-					cityId,
-					streetName,
-					lat,
-					lon,
-				});
+	// Jeśli brakuje lat/lon, geokoduj używając pełnego adresu (z numerem ulicy)
+	// To da nam dokładne współrzędne dla konkretnego adresu, nie tylko środek ulicy
+	if ((lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon))) {
+		// Buduj pełny adres do geokodowania (z numerem ulicy dla dokładności)
+		let fullAddressForGeocode = null;
+		if (apartment.street && apartment.city) {
+			// Użyj nowych pól: ulica + numer + miasto
+			const parts = [];
+			if (apartment.street) {
+				const streetWithNumber = apartment.streetNumber
+					? `${apartment.street} ${apartment.streetNumber}`
+					: apartment.street;
+				parts.push(streetWithNumber);
 			}
-		} catch (e) {
-			console.warn("[otodom/geocode] Otodom API geocode failed", e.message);
+			if (apartment.city) {
+				parts.push(apartment.city);
+			}
+			fullAddressForGeocode = parts.join(', ');
+		} else if (apartment.address) {
+			// Fallback na stare pole address
+			fullAddressForGeocode = apartment.address;
 		}
-	}
 
-	// Fallback: jeśli nadal brakuje lat/lon, użyj Nominatim (tylko jeśli włączone)
-	if ((lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) && apartment.address) {
-		try {
-			const geo = await resolveLatLonWithNominatim(apartment.address);
-			if (geo?.lat && geo?.lon) {
-				lat = geo.lat;
-				lon = geo.lon;
-				console.log("[otodom/location] Geocoded via Nominatim", {
-					address: apartment.address,
-					lat,
-					lon,
-				});
+		// Najpierw spróbuj Nominatim z pełnym adresem (zawiera numer ulicy) - daje dokładniejsze współrzędne
+		if (fullAddressForGeocode) {
+			try {
+				const geo = await resolveLatLonWithNominatim(fullAddressForGeocode);
+				if (geo?.lat && geo?.lon) {
+					lat = geo.lat;
+					lon = geo.lon;
+					console.log("[otodom/location] Geocoded via Nominatim (full address)", {
+						address: fullAddressForGeocode,
+						lat,
+						lon,
+					});
+				}
+			} catch (e) {
+				console.warn("[otodom/geocode] Nominatim failed", e.message);
 			}
-		} catch (e) {
-			console.warn("[otodom/geocode] Nominatim failed", e.message);
+		}
+
+		// Fallback: jeśli Nominatim nie zadziałał, użyj Otodom Locations API (tylko nazwa ulicy - mniej dokładne)
+		if ((lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) && apiKey && cityId && streetName) {
+			try {
+				const geo = await resolveLatLonWithOtodomAPI(apiKey, cityId, streetName);
+				if (geo?.lat && geo?.lon) {
+					lat = geo.lat;
+					lon = geo.lon;
+					console.log("[otodom/location] Geocoded via Otodom API (street only - less precise)", {
+						cityId,
+						streetName,
+						lat,
+						lon,
+					});
+				}
+			} catch (e) {
+				console.warn("[otodom/geocode] Otodom API geocode failed", e.message);
+			}
 		}
 	}
 
