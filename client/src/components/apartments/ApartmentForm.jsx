@@ -16,6 +16,13 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     description: '',
     area: '',
     numberOfRooms: '',
+    heating: '',
+    floor: '',
+    finishingStatus: '',
+    availableFrom: '',
+    rentCharges: '',
+    deposit: '',
+    hasElevator: false,
     status: 'WOLNE', // status i data końca umowy będziemy edytować gdzie indziej
     contractEndDate: '',
     images: [],
@@ -35,6 +42,15 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         description: apartment.description || '',
         area: apartment.area ?? '',
         numberOfRooms: apartment.numberOfRooms ?? '',
+        heating: apartment.heating || '',
+        floor: apartment.floor || '',
+        finishingStatus: apartment.finishingStatus || '',
+        availableFrom: apartment.availableFrom
+          ? apartment.availableFrom.slice(0, 10)
+          : '',
+        rentCharges: apartment.rentCharges ?? '',
+        deposit: apartment.deposit ?? '',
+        hasElevator: apartment.hasElevator || false,
         status: apartment.status || 'WOLNE',
         contractEndDate: apartment.contractEndDate
           ? apartment.contractEndDate.slice(0, 10)
@@ -45,8 +61,11 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
   }, [apartment]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
     setError('');
   };
 
@@ -153,6 +172,13 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         description: form.description.trim(),
         area,
         numberOfRooms: numberOfRooms || undefined,
+        heating: form.heating || undefined,
+        floor: form.floor || undefined,
+        finishingStatus: form.finishingStatus || undefined,
+        availableFrom: form.availableFrom || undefined,
+        rentCharges: form.rentCharges ? Number(form.rentCharges) : undefined,
+        deposit: form.deposit ? Number(form.deposit) : undefined,
+        hasElevator: form.hasElevator,
         // status i contractEndDate celowo NIE wysyłamy z tego formularza –
         // będą zarządzane z panelu głównego
         photos: form.images,
@@ -253,6 +279,116 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
                   placeholder="np. 2"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ogrzewanie</label>
+                <select
+                  name="heating"
+                  value={form.heating}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Wybierz...</option>
+                  <option value="boiler-room">Kotłownia</option>
+                  <option value="gas">Gazowe</option>
+                  <option value="electrical">Elektryczne</option>
+                  <option value="urban">Miejskie</option>
+                  <option value="tiled-stove">Piec kaflowy</option>
+                  <option value="other">Inne</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Piętro</label>
+                <select
+                  name="floor"
+                  value={form.floor}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Wybierz...</option>
+                  <option value="cellar">Piwnica</option>
+                  <option value="ground-floor">Parter</option>
+                  <option value="1st-floor">1. piętro</option>
+                  <option value="2nd-floor">2. piętro</option>
+                  <option value="3rd-floor">3. piętro</option>
+                  <option value="4th-floor">4. piętro</option>
+                  <option value="5th-floor">5. piętro</option>
+                  <option value="6th-floor">6. piętro</option>
+                  <option value="7th-floor">7. piętro</option>
+                  <option value="8th-floor">8. piętro</option>
+                  <option value="9th-floor">9. piętro</option>
+                  <option value="10th-floor">10. piętro</option>
+                  <option value="11th-floor-and-above">11. piętro i wyżej</option>
+                  <option value="garret">Poddasze</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Stan wykończenia</label>
+                <select
+                  name="finishingStatus"
+                  value={form.finishingStatus}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Wybierz...</option>
+                  <option value="to-complete">Do wykończenia</option>
+                  <option value="ready-to-use">Gotowe do zamieszkania</option>
+                  <option value="in-renovation">W remoncie</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Dostępne od</label>
+                <input
+                  type="date"
+                  name="availableFrom"
+                  value={form.availableFrom}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Czynsz (zł/mies.)</label>
+                <input
+                  type="number"
+                  name="rentCharges"
+                  value={form.rentCharges}
+                  onChange={handleChange}
+                  min="0"
+                  step="1"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Opcjonalne"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Kaucja (zł)</label>
+                <input
+                  type="number"
+                  name="deposit"
+                  value={form.deposit}
+                  onChange={handleChange}
+                  min="0"
+                  step="1"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Opcjonalne"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="hasElevator"
+                  checked={form.hasElevator}
+                  onChange={handleChange}
+                  className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm font-medium text-slate-700">Budynek ma windę</span>
+              </label>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Opis</label>

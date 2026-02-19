@@ -297,6 +297,151 @@ export async function getOtodomAccessToken(userId) {
 }
 
 /**
+ * Buduj tablicę atrybutów dla Otodom API na podstawie danych mieszkania
+ * @param {Object} apartment - Obiekt mieszkania z bazy danych
+ * @returns {Array} - Tablica atrybutów zgodnych z taksonomią Otodom
+ */
+function buildOtodomAttributes(apartment) {
+	const attributes = [];
+
+	// 1. Metraż - WYMAGANY dla apartments-for-rent
+	if (apartment.area != null && apartment.area > 0) {
+		attributes.push({
+			urn: "urn:concept:net-area-m2",
+			value: String(apartment.area),
+		});
+	}
+
+	// 2. Liczba pokoi - WYMAGANY dla apartments-for-rent
+	let numberOfRooms =
+		apartment.numberOfRooms != null ? Number(apartment.numberOfRooms) : null;
+	if (!numberOfRooms || isNaN(numberOfRooms)) {
+		const titleMatch = apartment.title?.match(/(\d+)[\s-]*pokoj/i);
+		const extractedRooms = titleMatch ? parseInt(titleMatch[1], 10) : null;
+		if (extractedRooms && extractedRooms >= 1 && extractedRooms <= 10) {
+			numberOfRooms = extractedRooms;
+		}
+	}
+	if (numberOfRooms != null && numberOfRooms >= 1 && numberOfRooms <= 10) {
+		attributes.push({
+			urn: "urn:concept:number-of-rooms",
+			value: `urn:concept:${numberOfRooms}`,
+		});
+	} else if (numberOfRooms != null && numberOfRooms > 10) {
+		attributes.push({
+			urn: "urn:concept:number-of-rooms",
+			value: "urn:concept:more",
+		});
+	}
+
+	// 3. Rynek (market) - WYMAGANY dla apartments-for-rent
+	attributes.push({
+		urn: "urn:concept:market",
+		value: "urn:concept:secondary",
+	});
+
+	// 4. Ogrzewanie (heating) - OPCJONALNE
+	if (apartment.heating) {
+		const heatingMap = {
+			"boiler-room": "urn:concept:boiler-room",
+			gas: "urn:concept:gas",
+			electrical: "urn:concept:electrical",
+			urban: "urn:concept:urban",
+			other: "urn:concept:other",
+			"tiled-stove": "urn:concept:tiled-stove",
+		};
+		const heatingUrn = heatingMap[apartment.heating];
+		if (heatingUrn) {
+			attributes.push({
+				urn: "urn:concept:heating",
+				value: heatingUrn,
+			});
+		}
+	}
+
+	// 5. Piętro (floor) - OPCJONALNE
+	if (apartment.floor) {
+		const floorMap = {
+			cellar: "urn:concept:cellar",
+			"ground-floor": "urn:concept:ground-floor",
+			"1st-floor": "urn:concept:1st-floor",
+			"2nd-floor": "urn:concept:2nd-floor",
+			"3rd-floor": "urn:concept:3rd-floor",
+			"4th-floor": "urn:concept:4th-floor",
+			"5th-floor": "urn:concept:5th-floor",
+			"6th-floor": "urn:concept:6th-floor",
+			"7th-floor": "urn:concept:7th-floor",
+			"8th-floor": "urn:concept:8th-floor",
+			"9th-floor": "urn:concept:9th-floor",
+			"10th-floor": "urn:concept:10th-floor",
+			"11th-floor-and-above": "urn:concept:11th-floor-and-above",
+			garret: "urn:concept:garret",
+		};
+		const floorUrn = floorMap[apartment.floor];
+		if (floorUrn) {
+			attributes.push({
+				urn: "urn:concept:floor",
+				value: floorUrn,
+			});
+		}
+	}
+
+	// 6. Stan wykończenia (status) - OPCJONALNE
+	if (apartment.finishingStatus) {
+		const statusMap = {
+			"to-complete": "urn:concept:to-complete",
+			"ready-to-use": "urn:concept:ready-to-use",
+			"in-renovation": "urn:concept:in-renovation",
+		};
+		const statusUrn = statusMap[apartment.finishingStatus];
+		if (statusUrn) {
+			attributes.push({
+				urn: "urn:concept:status",
+				value: statusUrn,
+			});
+		}
+	}
+
+	// 7. Dostępne od (free-from) - OPCJONALNE
+	if (apartment.availableFrom) {
+		const availableFromDate = new Date(apartment.availableFrom);
+		if (!isNaN(availableFromDate.getTime())) {
+			const formattedDate = availableFromDate.toISOString().split("T")[0];
+			attributes.push({
+				urn: "urn:concept:free-from",
+				value: formattedDate,
+			});
+		}
+	}
+
+	// 8. Winda (extras -> lift) - OPCJONALNE
+	if (apartment.hasElevator === true) {
+		const existingExtras = attributes.find(
+			(attr) => attr.urn === "urn:concept:extras",
+		);
+		if (existingExtras) {
+			if (Array.isArray(existingExtras.value)) {
+				if (!existingExtras.value.includes("urn:concept:lift")) {
+					existingExtras.value.push("urn:concept:lift");
+				}
+			} else {
+				existingExtras.value = [
+					existingExtras.value,
+					"urn:concept:lift",
+				];
+			}
+		} else {
+			attributes.push({
+				urn: "urn:concept:extras",
+				value: ["urn:concept:lift"],
+			});
+		}
+	}
+
+	return attributes;
+}
+
+/**
  * Publikuj ogłoszenie na Otodom przez API
  * @param {Object} apartment - Obiekt mieszkania z bazy danych
  * @param {string|ObjectId} userId - ID użytkownika aplikacji (właściciela mieszkania)
@@ -388,65 +533,23 @@ export async function publishOtodomAdvert(apartment, userId) {
 	// - custom_fields: obiekt z metadanymi integracji (id, reference_id) - format: {id: "...", reference_id: "..."}
 
 	// Buduj tablicę atrybutów z taxonomy
-	const attributes = [];
+	const attributes = buildOtodomAttributes(apartment);
 
-	// 1. Metraż - WYMAGANY dla apartments-for-rent
-	if (apartment.area != null && apartment.area > 0) {
-		attributes.push({
-			urn: "urn:concept:net-area-m2",
-			value: String(apartment.area),
-		});
-	} else {
+	// Walidacja wymaganych pól
+	if (!apartment.area || apartment.area <= 0) {
 		throw new Error(
 			"Metraż (area) jest wymagany dla publikacji ogłoszenia na Otodom.",
 		);
 	}
 
-	// 2. Liczba pokoi - WYMAGANY dla apartments-for-rent
-	// Mapuj liczbę pokoi na odpowiedni URN zgodnie z taksonomią
-	let numberOfRooms =
-		apartment.numberOfRooms != null ? Number(apartment.numberOfRooms) : null;
-
-	// Jeśli brak liczby pokoi, spróbuj wyciągnąć z tytułu
-	// Przykład: "Mieszkanie 3-pokojowe" -> 3
-	if (!numberOfRooms || isNaN(numberOfRooms)) {
-		const titleMatch = apartment.title?.match(/(\d+)[\s-]*pokoj/i);
-		const extractedRooms = titleMatch ? parseInt(titleMatch[1], 10) : null;
-		if (extractedRooms && extractedRooms >= 1 && extractedRooms <= 10) {
-			numberOfRooms = extractedRooms;
-			console.log(
-				"[otodom/publish] Extracted number of rooms from title:",
-				extractedRooms,
-			);
-		}
-	}
-
-	// Walidacja i mapowanie na URN
-	if (numberOfRooms != null && numberOfRooms >= 1 && numberOfRooms <= 10) {
-		// Taksonomia: attribute urn = urn:concept:number-of-rooms, value = urn:concept:1..10
-		attributes.push({
-			urn: "urn:concept:number-of-rooms",
-			value: `urn:concept:${numberOfRooms}`,
-		});
-	} else if (numberOfRooms != null && numberOfRooms > 10) {
-		// Taksonomia: value = urn:concept:more
-		attributes.push({
-			urn: "urn:concept:number-of-rooms",
-			value: "urn:concept:more",
-		});
-	} else {
-		// Liczba pokoi jest wymagana - rzuć błąd zamiast używać domyślnej wartości
+	const hasNumberOfRooms = attributes.some(
+		(attr) => attr.urn === "urn:concept:number-of-rooms",
+	);
+	if (!hasNumberOfRooms) {
 		throw new Error(
 			'Liczba pokoi (numberOfRooms) jest wymagana dla publikacji ogłoszenia na Otodom. Dodaj pole "Liczba pokoi" w formularzu mieszkania lub upewnij się, że tytuł zawiera informację o liczbie pokoi (np. "Mieszkanie 3-pokojowe").',
 		);
 	}
-
-	// 3. Rynek (market) - WYMAGANY dla apartments-for-rent
-	// Domyślnie używamy "secondary" (rynek wtórny)
-	attributes.push({
-		urn: "urn:concept:market",
-		value: "urn:concept:secondary", // primary lub secondary
-	});
 
 	const advertData = {
 		site_urn: OTODOM_SITE_URN, // urn:site:otodompl
@@ -598,6 +701,9 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 	// Normalizuj URL-e zdjęć do pełnych URL-i
 	const normalizedImages = normalizeImageUrls(apartment.photos || []);
 
+	// Buduj atrybuty zgodnie z taksonomią Otodom
+	const attributes = buildOtodomAttributes(apartment);
+
 	const advertData = {
 		title: title.substring(0, 70),
 		description,
@@ -606,6 +712,7 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 			currency: "PLN",
 		},
 		images: normalizedImages,
+		attributes: attributes.length > 0 ? attributes : [],
 	};
 
 	try {

@@ -111,6 +111,9 @@ export default function ApartmentList() {
 									<th className='text-right py-4 px-6 text-sm font-semibold text-slate-700'>
 										m²
 									</th>
+									<th className='text-left py-4 px-6 text-sm font-semibold text-slate-700'>
+										Szczegóły
+									</th>
 									<th className='w-24 py-4 px-6' />
 								</tr>
 							</thead>
@@ -145,9 +148,70 @@ export default function ApartmentList() {
 										</td>
 										<td className='py-4 px-6 text-right font-medium text-slate-800'>
 											{formatPrice(apt.price)}
+											{apt.rentCharges && (
+												<div className='text-xs text-slate-500 mt-0.5'>
+													+ {formatPrice(apt.rentCharges)} czynsz
+												</div>
+											)}
 										</td>
 										<td className='py-4 px-6 text-right text-slate-600'>
-											{apt.area ?? "–"}
+											{apt.area ?? "–"} m²
+											{apt.numberOfRooms && (
+												<div className='text-xs text-slate-500 mt-0.5'>
+													{apt.numberOfRooms} pokoi
+												</div>
+											)}
+										</td>
+										<td className='py-4 px-6 text-sm text-slate-600'>
+											<div className='space-y-1'>
+												{apt.floor && (
+													<div>
+														<span className='text-slate-500'>Piętro: </span>
+														<span className='font-medium'>
+															{apt.floor === 'ground-floor' ? 'Parter' :
+															 apt.floor === '1st-floor' ? '1. piętro' :
+															 apt.floor === '2nd-floor' ? '2. piętro' :
+															 apt.floor === '3rd-floor' ? '3. piętro' :
+															 apt.floor === '4th-floor' ? '4. piętro' :
+															 apt.floor === '5th-floor' ? '5. piętro' :
+															 apt.floor === '6th-floor' ? '6. piętro' :
+															 apt.floor === '7th-floor' ? '7. piętro' :
+															 apt.floor === '8th-floor' ? '8. piętro' :
+															 apt.floor === '9th-floor' ? '9. piętro' :
+															 apt.floor === '10th-floor' ? '10. piętro' :
+															 apt.floor === '11th-floor-and-above' ? '11+ piętro' :
+															 apt.floor === 'cellar' ? 'Piwnica' :
+															 apt.floor === 'garret' ? 'Poddasze' : apt.floor}
+														</span>
+													</div>
+												)}
+												{apt.heating && (
+													<div>
+														<span className='text-slate-500'>Ogrzewanie: </span>
+														<span className='font-medium'>
+															{apt.heating === 'boiler-room' ? 'Kotłownia' :
+															 apt.heating === 'gas' ? 'Gazowe' :
+															 apt.heating === 'electrical' ? 'Elektryczne' :
+															 apt.heating === 'urban' ? 'Miejskie' :
+															 apt.heating === 'tiled-stove' ? 'Piec kaflowy' :
+															 apt.heating === 'other' ? 'Inne' : apt.heating}
+														</span>
+													</div>
+												)}
+												{apt.finishingStatus && (
+													<div>
+														<span className='text-slate-500'>Stan: </span>
+														<span className='font-medium'>
+															{apt.finishingStatus === 'to-complete' ? 'Do wykończenia' :
+															 apt.finishingStatus === 'ready-to-use' ? 'Gotowe' :
+															 apt.finishingStatus === 'in-renovation' ? 'W remoncie' : apt.finishingStatus}
+														</span>
+													</div>
+												)}
+												{apt.hasElevator && (
+													<div className='text-emerald-600 font-medium'>✓ Winda</div>
+												)}
+											</div>
 										</td>
 										<td className='py-4 px-6'>
 											<div className='flex items-center gap-2'>

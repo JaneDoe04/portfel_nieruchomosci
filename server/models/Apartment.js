@@ -45,6 +45,46 @@ const apartmentSchema = new mongoose.Schema(
       max: 10,
       comment: 'Liczba pokoi (wymagana dla Otodom API)',
     },
+    heating: {
+      type: String,
+      default: null,
+      enum: ['boiler-room', 'gas', 'electrical', 'urban', 'other', 'tiled-stove'],
+      comment: 'Typ ogrzewania (Otodom: urn:concept:heating)',
+    },
+    floor: {
+      type: String,
+      default: null,
+      enum: ['cellar', 'ground-floor', '1st-floor', '2nd-floor', '3rd-floor', '4th-floor', '5th-floor', '6th-floor', '7th-floor', '8th-floor', '9th-floor', '10th-floor', '11th-floor-and-above', 'garret'],
+      comment: 'Piętro mieszkania (Otodom: urn:concept:floor)',
+    },
+    finishingStatus: {
+      type: String,
+      default: null,
+      enum: ['to-complete', 'ready-to-use', 'in-renovation'],
+      comment: 'Stan wykończenia (Otodom: urn:concept:status)',
+    },
+    availableFrom: {
+      type: Date,
+      default: null,
+      comment: 'Dostępne od (Otodom: urn:concept:free-from)',
+    },
+    rentCharges: {
+      type: Number,
+      default: null,
+      min: 0,
+      comment: 'Czynsz/miesiąc (opcjonalne, dodatkowe do ceny)',
+    },
+    deposit: {
+      type: Number,
+      default: null,
+      min: 0,
+      comment: 'Kaucja (opcjonalne)',
+    },
+    hasElevator: {
+      type: Boolean,
+      default: false,
+      comment: 'Czy budynek ma windę (Otodom: urn:concept:extras -> urn:concept:lift)',
+    },
     cityId: {
       type: Number,
       default: null,
