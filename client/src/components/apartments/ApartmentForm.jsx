@@ -22,7 +22,6 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
     heating: '',
     floor: '',
     finishingStatus: '',
-    availableFrom: '',
     rentCharges: '',
     deposit: '',
     hasElevator: false,
@@ -85,9 +84,6 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         heating: apartment.heating || '',
         floor: apartment.floor || '',
         finishingStatus: apartment.finishingStatus || '',
-        availableFrom: apartment.availableFrom
-          ? apartment.availableFrom.slice(0, 10)
-          : '',
         rentCharges: apartment.rentCharges ?? '',
         deposit: apartment.deposit ?? '',
         hasElevator: apartment.hasElevator || false,
@@ -233,7 +229,6 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
         heating: form.heating || undefined,
         floor: form.floor || undefined,
         finishingStatus: form.finishingStatus || undefined,
-        availableFrom: form.availableFrom || undefined,
         rentCharges: form.rentCharges ? Number(form.rentCharges) : undefined,
         deposit: form.deposit ? Number(form.deposit) : undefined,
         hasElevator: form.hasElevator,
@@ -432,16 +427,6 @@ export default function ApartmentForm({ apartment = null, onSave, onClose }) {
                   <option value="ready-to-use">Gotowe do zamieszkania</option>
                   <option value="in-renovation">W remoncie</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Dostępne od</label>
-                <input
-                  type="date"
-                  name="availableFrom"
-                  value={form.availableFrom}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

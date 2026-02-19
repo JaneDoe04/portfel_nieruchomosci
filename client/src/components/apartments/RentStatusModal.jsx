@@ -23,6 +23,9 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 	const [contractEndDate, setContractEndDate] = useState(
 		apartment.contractEndDate ? apartment.contractEndDate.slice(0, 10) : ""
 	);
+	const [availableFrom, setAvailableFrom] = useState(
+		apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : ""
+	);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 	const [publishing, setPublishing] = useState(false);
@@ -47,6 +50,8 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 				status,
 				// jeśli mieszkanie NIE jest wynajęte, nie trzymamy daty końca umowy
 				contractEndDate: status === "WYNAJĘTE" && contractEndDate ? contractEndDate : null,
+				// dostępne od - data kiedy mieszkanie będzie dostępne do wynajęcia
+				availableFrom: availableFrom || null,
 			});
 			onUpdated?.();
 		} catch (err) {
@@ -273,6 +278,38 @@ export default function RentStatusModal({ apartment, onClose, onUpdated }) {
 								disabled={status !== "WYNAJĘTE"}
 								className='w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm disabled:bg-slate-50 disabled:text-slate-400'
 							/>
+						</div>
+						<div>
+							<label className='block text-sm font-medium text-slate-700 mb-1'>
+								Dostępne od
+							</label>
+							<input
+								type='date'
+								value={availableFrom}
+								onChange={async (e) => {
+									const newDate = e.target.value;
+									setAvailableFrom(newDate);
+									// Automatycznie zapisz datę bez czekania na "Zapisz zmiany"
+									// To jest ważne dla publikacji - data musi być dostępna od razu
+									try {
+										await api.put(`/apartments/${apartment._id}`, {
+											availableFrom: newDate || null,
+										});
+										// Odśwież dane mieszkania po zapisaniu
+										onUpdated?.();
+									} catch (err) {
+										console.error("Błąd zapisu daty dostępności:", err);
+										// Wróć do poprzedniej wartości przy błędzie
+										setAvailableFrom(apartment.availableFrom ? apartment.availableFrom.slice(0, 10) : "");
+										alert("Nie udało się zapisać daty dostępności. Spróbuj ponownie.");
+									}
+								}}
+								className='w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm'
+								placeholder="Data dostępności mieszkania"
+							/>
+							<p className='mt-1 text-xs text-slate-500'>
+								Data od kiedy mieszkanie będzie dostępne do wynajęcia (wyświetlana w ogłoszeniu Otodom). Zapisuje się automatycznie.
+							</p>
 						</div>
 					</div>
 

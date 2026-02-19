@@ -906,13 +906,21 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 		priceObject.security_deposit = Number(apartment.deposit);
 	}
 
+	// Przy aktualizacji również buduj location (może się zmienić)
+	const location = await buildOtodomLocation(apartment);
+
 	const advertData = {
 		title: title.substring(0, 70),
 		description,
 		price: priceObject,
+		location, // Dodaj location przy aktualizacji (może zawierać zaktualizowane współrzędne)
 		images: normalizedImages,
 		attributes: attributes.length > 0 ? attributes : [],
 	};
+
+	// Log payload przed wysłaniem (dla debugowania)
+	console.log("[otodom/update] Payload:", JSON.stringify(advertData, null, 2));
+	console.log("[otodom/update] AvailableFrom attribute:", attributes.find(attr => attr.urn === "urn:concept:free-from"));
 
 	try {
 		await axios.put(
