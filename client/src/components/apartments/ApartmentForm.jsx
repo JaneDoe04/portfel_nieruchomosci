@@ -8,6 +8,41 @@ const STATUS_OPTIONS = [
 	{ value: "REMANENT", label: "Remanent" },
 ];
 
+// Taksonomia Otodom – informacje dodatkowe, media, wyposażenie, zabezpieczenia
+const EXTRAS_OPTIONS = [
+	{ value: "balcony", label: "Balkon" },
+	{ value: "usable-room", label: "Pom. użytkowe" },
+	{ value: "garage", label: "Garaż/miejsce parkingowe" },
+	{ value: "basement", label: "Piwnica" },
+	{ value: "garden", label: "Ogródek" },
+	{ value: "terrace", label: "Taras" },
+	{ value: "two-storey", label: "Dwupoziomowe" },
+	{ value: "separate-kitchen", label: "Oddzielna kuchnia" },
+	{ value: "air-conditioning", label: "Klimatyzacja" },
+];
+const MEDIA_OPTIONS = [
+	{ value: "internet", label: "Internet" },
+	{ value: "cable-tv", label: "Telewizja kablowa" },
+	{ value: "phone", label: "Telefon" },
+];
+const EQUIPMENT_OPTIONS = [
+	{ value: "furniture", label: "Meble" },
+	{ value: "washing-machine", label: "Pralka" },
+	{ value: "dishwasher", label: "Zmywarka" },
+	{ value: "fridge", label: "Lodówka" },
+	{ value: "stove", label: "Kuchenka" },
+	{ value: "oven", label: "Piekarnik" },
+	{ value: "tv", label: "Telewizor" },
+];
+const SECURITY_OPTIONS = [
+	{ value: "roller-shutters", label: "Rolety antywłamaniowe" },
+	{ value: "anti-burglary-door", label: "Drzwi / okna antywłamaniowe" },
+	{ value: "entryphone", label: "Domofon / wideofon" },
+	{ value: "monitoring", label: "Monitoring / ochrona" },
+	{ value: "alarm", label: "System alarmowy" },
+	{ value: "closed-area", label: "Teren zamknięty" },
+];
+
 export default function ApartmentForm({
 	apartment = null,
 	onSave,
@@ -30,6 +65,10 @@ export default function ApartmentForm({
 		rentCharges: "",
 		deposit: "",
 		hasElevator: false,
+		extras: [],
+		mediaTypes: [],
+		equipmentTypes: [],
+		security: [],
 		status: "WOLNE", // status i data końca umowy będziemy edytować gdzie indziej
 		contractEndDate: "",
 		images: [],
@@ -96,6 +135,10 @@ export default function ApartmentForm({
 				rentCharges: apartment.rentCharges ?? "",
 				deposit: apartment.deposit ?? "",
 				hasElevator: apartment.hasElevator || false,
+				extras: Array.isArray(apartment.extras) ? [...apartment.extras] : [],
+				mediaTypes: Array.isArray(apartment.mediaTypes) ? [...apartment.mediaTypes] : [],
+				equipmentTypes: Array.isArray(apartment.equipmentTypes) ? [...apartment.equipmentTypes] : [],
+				security: Array.isArray(apartment.security) ? [...apartment.security] : [],
 				status: apartment.status || "WOLNE",
 				contractEndDate: apartment.contractEndDate
 					? apartment.contractEndDate.slice(0, 10)
@@ -116,6 +159,18 @@ export default function ApartmentForm({
 			...prev,
 			[name]: type === "checkbox" ? checked : value,
 		}));
+		setError("");
+	};
+
+	const toggleArrayItem = (field, value) => {
+		setForm((prev) => {
+			const arr = prev[field] || [];
+			const has = arr.includes(value);
+			return {
+				...prev,
+				[field]: has ? arr.filter((v) => v !== value) : [...arr, value],
+			};
+		});
 		setError("");
 	};
 
@@ -255,6 +310,10 @@ export default function ApartmentForm({
 				rentCharges: form.rentCharges ? Number(form.rentCharges) : undefined,
 				deposit: form.deposit ? Number(form.deposit) : undefined,
 				hasElevator: form.hasElevator,
+				extras: form.extras || [],
+				mediaTypes: form.mediaTypes || [],
+				equipmentTypes: form.equipmentTypes || [],
+				security: form.security || [],
 				// status i contractEndDate celowo NIE wysyłamy z tego formularza –
 				// będą zarządzane z panelu głównego
 				photos: form.images,
@@ -527,6 +586,99 @@ export default function ApartmentForm({
 								</span>
 							</label>
 						</div>
+
+						{/* Informacje dodatkowe (Otodom: extras) */}
+						<div>
+							<label className='block text-sm font-medium text-slate-700 mb-2'>
+								Informacje dodatkowe
+							</label>
+							<div className='flex flex-wrap gap-2'>
+								{EXTRAS_OPTIONS.map((opt) => (
+									<button
+										key={opt.value}
+										type='button'
+										onClick={() => toggleArrayItem("extras", opt.value)}
+										className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+											form.extras?.includes(opt.value)
+												? "bg-primary-100 border-primary-300 text-primary-800"
+												: "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+										}`}
+									>
+										{opt.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* Media (Otodom: media-types) */}
+						<div>
+							<label className='block text-sm font-medium text-slate-700 mb-2'>
+								Media
+							</label>
+							<div className='flex flex-wrap gap-2'>
+								{MEDIA_OPTIONS.map((opt) => (
+									<button
+										key={opt.value}
+										type='button'
+										onClick={() => toggleArrayItem("mediaTypes", opt.value)}
+										className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+											form.mediaTypes?.includes(opt.value)
+												? "bg-primary-100 border-primary-300 text-primary-800"
+												: "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+										}`}
+									>
+										{opt.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* Wyposażenie (Otodom: equipment-types) */}
+						<div>
+							<label className='block text-sm font-medium text-slate-700 mb-2'>
+								Wyposażenie
+							</label>
+							<div className='flex flex-wrap gap-2'>
+								{EQUIPMENT_OPTIONS.map((opt) => (
+									<button
+										key={opt.value}
+										type='button'
+										onClick={() => toggleArrayItem("equipmentTypes", opt.value)}
+										className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+											form.equipmentTypes?.includes(opt.value)
+												? "bg-primary-100 border-primary-300 text-primary-800"
+												: "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+										}`}
+									>
+										{opt.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* Zabezpieczenia (Otodom: security) */}
+						<div>
+							<label className='block text-sm font-medium text-slate-700 mb-2'>
+								Zabezpieczenia
+							</label>
+							<div className='flex flex-wrap gap-2'>
+								{SECURITY_OPTIONS.map((opt) => (
+									<button
+										key={opt.value}
+										type='button'
+										onClick={() => toggleArrayItem("security", opt.value)}
+										className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+											form.security?.includes(opt.value)
+												? "bg-primary-100 border-primary-300 text-primary-800"
+												: "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+										}`}
+									>
+										{opt.label}
+									</button>
+								))}
+							</div>
+						</div>
+
 						<div>
 							<label className='block text-sm font-medium text-slate-700 mb-1'>
 								Opis

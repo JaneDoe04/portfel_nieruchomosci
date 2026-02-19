@@ -110,6 +110,30 @@ const apartmentSchema = new mongoose.Schema(
       default: false,
       comment: 'Czy budynek ma windę (Otodom: urn:concept:extras -> urn:concept:lift)',
     },
+    // Informacje dodatkowe (Otodom: urn:concept:extras, multiple)
+    extras: [{
+      type: String,
+      enum: ['balcony', 'terrace', 'garden', 'air-conditioning', 'basement', 'separate-kitchen', 'garage', 'two-storey', 'usable-room'],
+      trim: true,
+    }],
+    // Media (Otodom: urn:concept:media-types, multiple)
+    mediaTypes: [{
+      type: String,
+      enum: ['internet', 'cable-tv', 'phone'],
+      trim: true,
+    }],
+    // Wyposażenie (Otodom: urn:concept:equipment-types, multiple)
+    equipmentTypes: [{
+      type: String,
+      enum: ['furniture', 'oven', 'fridge', 'washing-machine', 'tv', 'stove', 'dishwasher'],
+      trim: true,
+    }],
+    // Zabezpieczenia (Otodom: urn:concept:security, multiple)
+    security: [{
+      type: String,
+      enum: ['alarm', 'anti-burglary-door', 'entryphone', 'roller-shutters', 'closed-area', 'monitoring'],
+      trim: true,
+    }],
     cityId: {
       type: Number,
       default: null,

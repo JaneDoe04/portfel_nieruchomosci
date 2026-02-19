@@ -590,17 +590,90 @@ function buildOtodomAttributes(apartment) {
 		console.log("[otodom/buildAttributes] No availableFrom set for apartment:", apartment._id);
 	}
 
-	// 8. Winda (extras -> lift) - OPCJONALNE
-	// Dla multiple attributes Otodom wymaga osobnych atrybutów z tym samym URN
-	// zamiast jednego atrybutu z tablicą wartości
+	// 8. Informacje dodatkowe (extras) - OPCJONALNE, multiple
+	// Winda z hasElevator (kompatybilność wsteczna)
 	if (apartment.hasElevator === true) {
-		attributes.push({
-			urn: "urn:concept:extras",
-			value: "urn:concept:lift",
-		});
+		attributes.push({ urn: "urn:concept:extras", value: "urn:concept:lift" });
+	}
+	// Pozostałe extras z tablicy (taksonomia Otodom)
+	const EXTRAS_URN = {
+		balcony: "urn:concept:balcony",
+		terrace: "urn:concept:terrace",
+		garden: "urn:concept:garden",
+		"air-conditioning": "urn:concept:air-conditioning",
+		basement: "urn:concept:basement",
+		"separate-kitchen": "urn:concept:separate-kitchen",
+		garage: "urn:concept:garage",
+		"two-storey": "urn:concept:two-storey",
+		"usable-room": "urn:concept:usable-room",
+	};
+	if (Array.isArray(apartment.extras)) {
+		for (const e of apartment.extras) {
+			if (EXTRAS_URN[e]) {
+				attributes.push({ urn: "urn:concept:extras", value: EXTRAS_URN[e] });
+			}
+		}
 	}
 
-	// 9. Czynsz i kaucja - próba dodania jako atrybuty
+	// 9. Media (media-types) - OPCJONALNE, multiple
+	const MEDIA_URN = {
+		internet: "urn:concept:internet",
+		"cable-tv": "urn:concept:cable-tv",
+		phone: "urn:concept:phone",
+	};
+	if (Array.isArray(apartment.mediaTypes)) {
+		for (const m of apartment.mediaTypes) {
+			if (MEDIA_URN[m]) {
+				attributes.push({
+					urn: "urn:concept:media-types",
+					value: MEDIA_URN[m],
+				});
+			}
+		}
+	}
+
+	// 10. Wyposażenie (equipment-types) - OPCJONALNE, multiple
+	const EQUIPMENT_URN = {
+		furniture: "urn:concept:furniture",
+		oven: "urn:concept:oven",
+		fridge: "urn:concept:fridge",
+		"washing-machine": "urn:concept:washing-machine",
+		tv: "urn:concept:tv",
+		stove: "urn:concept:stove",
+		dishwasher: "urn:concept:dishwasher",
+	};
+	if (Array.isArray(apartment.equipmentTypes)) {
+		for (const eq of apartment.equipmentTypes) {
+			if (EQUIPMENT_URN[eq]) {
+				attributes.push({
+					urn: "urn:concept:equipment-types",
+					value: EQUIPMENT_URN[eq],
+				});
+			}
+		}
+	}
+
+	// 11. Zabezpieczenia (security) - OPCJONALNE, multiple
+	const SECURITY_URN = {
+		alarm: "urn:concept:alarm",
+		"anti-burglary-door": "urn:concept:anti-burglary-door",
+		entryphone: "urn:concept:entryphone",
+		"roller-shutters": "urn:concept:roller-shutters",
+		"closed-area": "urn:concept:closed-area",
+		monitoring: "urn:concept:monitoring",
+	};
+	if (Array.isArray(apartment.security)) {
+		for (const s of apartment.security) {
+			if (SECURITY_URN[s]) {
+				attributes.push({
+					urn: "urn:concept:security",
+					value: SECURITY_URN[s],
+				});
+			}
+		}
+	}
+
+	// 12. Czynsz i kaucja - próba dodania jako atrybuty
 	// Otodom może mieć te pola w taksonomii, ale nie są widoczne w podstawowej dokumentacji
 	// Próbujemy najbardziej prawdopodobne URN-y - jeśli API zwróci błąd walidacji,
 	// będziemy wiedzieć które pola są nieprawidłowe i możemy je usunąć

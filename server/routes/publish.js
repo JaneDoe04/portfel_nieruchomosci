@@ -280,6 +280,12 @@ router.post("/:apartmentId/otodom", async (req, res) => {
 			});
 		}
 
+		if (apartment.externalIds?.otodom) {
+			return res.status(400).json({
+				message: "To mieszkanie jest już opublikowane na Otodom.",
+			});
+		}
+
 		// WAŻNE: Odśwież mieszkanie z bazy PRZED publikacją, żeby mieć najnowsze dane (w tym availableFrom)
 		// To jest szczególnie ważne jeśli mieszkanie było aktualizowane tuż przed kliknięciem "Publikuj"
 		apartment = await Apartment.findById(req.params.apartmentId).exec();
@@ -463,7 +469,10 @@ router.post("/:apartmentId/otodom", async (req, res) => {
 			apartmentId: req.params.apartmentId,
 			userId: req.user._id,
 		});
-		const errorMessage = err.message || "Błąd publikacji na Otodom.";
+		const errorMessage =
+			typeof err.message === "string" && !/status code|request failed|ECONNREFUSED|ETIMEDOUT/i.test(err.message)
+				? err.message
+				: "Nie udało się opublikować. Spróbuj za chwilę.";
 		res.status(500).json({ message: errorMessage });
 	}
 });
@@ -703,7 +712,7 @@ router.delete("/:apartmentId/otodom", async (req, res) => {
 		const externalId = apartment.externalIds?.otodom;
 		if (!externalId) {
 			return res.status(400).json({
-				message: "Mieszkanie nie ma opublikowanego ogłoszenia na Otodom.",
+				message: "Ogłoszenie zostało już usunięte z Otodom.",
 			});
 		}
 
@@ -752,9 +761,11 @@ router.delete("/:apartmentId/otodom", async (req, res) => {
 			message: "Ogłoszenie usunięte z Otodom.",
 		});
 	} catch (err) {
-		res
-			.status(500)
-			.json({ message: err.message || "Błąd usuwania ogłoszenia z Otodom." });
+		const errorMessage =
+			typeof err.message === "string" && !/status code|request failed|ECONNREFUSED|ETIMEDOUT/i.test(err.message)
+				? err.message
+				: "Nie udało się usunąć ogłoszenia. Spróbuj za chwilę.";
+		res.status(500).json({ message: errorMessage });
 	}
 });
 
