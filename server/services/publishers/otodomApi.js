@@ -415,27 +415,13 @@ function buildOtodomAttributes(apartment) {
 	}
 
 	// 8. Winda (extras -> lift) - OPCJONALNE
+	// Dla multiple attributes Otodom wymaga osobnych atrybutów z tym samym URN
+	// zamiast jednego atrybutu z tablicą wartości
 	if (apartment.hasElevator === true) {
-		const existingExtras = attributes.find(
-			(attr) => attr.urn === "urn:concept:extras",
-		);
-		if (existingExtras) {
-			if (Array.isArray(existingExtras.value)) {
-				if (!existingExtras.value.includes("urn:concept:lift")) {
-					existingExtras.value.push("urn:concept:lift");
-				}
-			} else {
-				existingExtras.value = [
-					existingExtras.value,
-					"urn:concept:lift",
-				];
-			}
-		} else {
-			attributes.push({
-				urn: "urn:concept:extras",
-				value: ["urn:concept:lift"],
-			});
-		}
+		attributes.push({
+			urn: "urn:concept:extras",
+			value: "urn:concept:lift",
+		});
 	}
 
 	return attributes;
@@ -626,6 +612,14 @@ export async function publishOtodomAdvert(apartment, userId) {
 				JSON.stringify(err.response.data.errors, null, 2),
 			);
 		}
+
+		// Log pełnej odpowiedzi z API dla debugowania
+		console.error("[otodom/publish] Full API response:", {
+			status: err.response?.status,
+			statusText: err.response?.statusText,
+			headers: err.response?.headers,
+			data: err.response?.data,
+		});
 
 		console.error("Błąd publikacji na Otodom:", {
 			status: err.response?.status,
