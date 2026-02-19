@@ -264,18 +264,18 @@ export async function publishOtodomAdvert(apartment, userId) {
   const location = await buildOtodomLocation(apartment);
 
   const titleRaw = apartment.title || '';
-  let title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
+  // Zawsze dodajemy prefix [qatest-mercury] automatycznie (używamy konta testowego)
+  // Użytkownik nie musi tego wpisywać w formularzu
+  let title = buildTestSafeTitle(titleRaw);
   
   // Walidacja tytułu zgodnie z wymaganiami OLX Group API:
   // - Min 5 znaków, max 70 znaków
   // - No uppercase (tylko pierwsza litera może być wielka, reszta małe)
   // - Jeśli za krótki, użyj fallback
   if (title.length < 5) {
-    title = titleRaw.length >= 5 ? titleRaw : (titleRaw || 'Mieszkanie do wynajęcia');
-    // Jeśli to tryb testowy, dodaj prefix ponownie
-    if (isTestMode()) {
-      title = buildTestSafeTitle(title);
-    }
+    const fallbackTitle = titleRaw.length >= 5 ? titleRaw : (titleRaw || 'Mieszkanie do wynajęcia');
+    // Zawsze dodajemy prefix [qatest-mercury]
+    title = buildTestSafeTitle(fallbackTitle);
   }
   // Obetnij do max 70 znaków
   title = title.substring(0, 70);
@@ -284,12 +284,12 @@ export async function publishOtodomAdvert(apartment, userId) {
     throw new Error('Tytuł ogłoszenia musi mieć minimum 5 znaków.');
   }
   // OLX Group API wymaga: "no uppercase" - tylko pierwsza litera może być wielka
-  // UWAGA: Prefix [qatest-mercury] może zawierać wielkie litery - zostawiamy go jak jest
-  // Konwertuj resztę tytułu (po prefiksie) na format: pierwsza litera wielka, reszta małe
-  if (isTestMode() && title.startsWith('[qatest-mercury]')) {
+  // Prefix [qatest-mercury] zostawiamy jak jest, konwertujemy resztę tytułu
+  if (title.startsWith('[qatest-mercury]')) {
     const prefix = '[qatest-mercury]';
     const restOfTitle = title.substring(prefix.length).trim();
     if (restOfTitle.length > 0) {
+      // Konwertuj resztę tytułu: pierwsza litera wielka, reszta małe
       title = prefix + ' ' + restOfTitle.charAt(0).toUpperCase() + restOfTitle.slice(1).toLowerCase();
     }
   } else {
@@ -298,9 +298,9 @@ export async function publishOtodomAdvert(apartment, userId) {
   }
   
   // Description: min 50 znaków (wymagane przez OLX Group API)
-  let description = isTestMode()
-    ? OTODOM_TEST_DESCRIPTION
-    : (apartment.description || titleRaw || '');
+  // Zawsze używamy testowego opisu (używamy konta testowego)
+  // Użytkownik nie musi tego wpisywać w formularzu
+  let description = OTODOM_TEST_DESCRIPTION;
   
   // Jeśli opis jest za krótki, dodaj tekst
   if (description.length < 50) {
@@ -513,10 +513,10 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
   const appCreds = await getOtodomAppCredentials();
 
   const titleRaw = apartment.title || '';
-  const title = isTestMode() ? buildTestSafeTitle(titleRaw) : titleRaw;
-  const description = isTestMode()
-    ? OTODOM_TEST_DESCRIPTION
-    : (apartment.description || titleRaw);
+  // Zawsze dodajemy prefix [qatest-mercury] automatycznie (używamy konta testowego)
+  const title = buildTestSafeTitle(titleRaw);
+  // Zawsze używamy testowego opisu (używamy konta testowego)
+  const description = OTODOM_TEST_DESCRIPTION;
 
   // Normalizuj URL-e zdjęć do pełnych URL-i
   const normalizedImages = normalizeImageUrls(apartment.photos || []);
