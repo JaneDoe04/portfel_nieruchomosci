@@ -815,23 +815,13 @@ export async function publishOtodomAdvert(apartment, userId) {
 		);
 	}
 
-	// Buduj obiekt price z dodatkowymi polami dla czynszu i kaucji
+	// Zgodnie z dokumentacją OLX Group API (advert-validation-rules):
+	// - price = cena główna (dla wynajmu: miesięczny czynsz)
+	// - deposit_price = kaucja – osobne pole na poziomie payloadu, NIE wewnątrz price
 	const priceObject = {
-		value: Number(apartment.price), // Musi być liczbą
+		value: Number(apartment.price),
 		currency: "PLN",
 	};
-
-	// Dodaj czynsz i kaucję do obiektu price (jeśli API to obsługuje)
-	// Otodom może mieć te pola jako dodatkowe właściwości obiektu price
-	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
-		priceObject.service_charge = Number(apartment.rentCharges);
-		priceObject.additional_charges = Number(apartment.rentCharges);
-	}
-
-	if (apartment.deposit != null && apartment.deposit > 0) {
-		priceObject.deposit = Number(apartment.deposit);
-		priceObject.security_deposit = Number(apartment.deposit);
-	}
 
 	const advertData = {
 		site_urn: OTODOM_SITE_URN, // urn:site:otodompl
@@ -839,9 +829,17 @@ export async function publishOtodomAdvert(apartment, userId) {
 		title, // Już zwalidowany: 5-70 znaków, no uppercase
 		description,
 		price: priceObject,
+		// Kaucja – API wymaga deposit_price na najwyższym poziomie (dla kategorii "for rent")
+		...(apartment.deposit != null &&
+			apartment.deposit > 0 && {
+				deposit_price: {
+					value: Number(apartment.deposit),
+					currency: "PLN",
+				},
+			}),
 		location, // location.custom_fields zawierają city_id i street_name
 		images: normalizedImages,
-		// Atrybuty z taxonomy (metraż, liczba pokoi itp.)
+		// Atrybuty z taxonomy (metraż, liczba pokoi, czynsz dodatkowy rent-charges itp.)
 		attributes: attributes.length > 0 ? attributes : [],
 		// custom_fields: metadane integracji - API wymaga pola 'id'
 		custom_fields: {
@@ -991,21 +989,11 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 	// Buduj atrybuty zgodnie z taksonomią Otodom
 	const attributes = buildOtodomAttributes(apartment);
 
-	// Buduj obiekt price z dodatkowymi polami dla czynszu i kaucji
+	// price = główna cena (czynsz); deposit_price = kaucja – osobne pole (dokumentacja OLX)
 	const priceObject = {
-		value: apartment.price,
+		value: Number(apartment.price),
 		currency: "PLN",
 	};
-
-	if (apartment.rentCharges != null && apartment.rentCharges > 0) {
-		priceObject.service_charge = Number(apartment.rentCharges);
-		priceObject.additional_charges = Number(apartment.rentCharges);
-	}
-
-	if (apartment.deposit != null && apartment.deposit > 0) {
-		priceObject.deposit = Number(apartment.deposit);
-		priceObject.security_deposit = Number(apartment.deposit);
-	}
 
 	// Przy aktualizacji również buduj location (może się zmienić)
 	const location = await buildOtodomLocation(apartment);
@@ -1014,6 +1002,13 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 		title: title.substring(0, 70),
 		description,
 		price: priceObject,
+		...(apartment.deposit != null &&
+			apartment.deposit > 0 && {
+				deposit_price: {
+					value: Number(apartment.deposit),
+					currency: "PLN",
+				},
+			}),
 		location, // Dodaj location przy aktualizacji (może zawierać zaktualizowane współrzędne)
 		images: normalizedImages,
 		attributes: attributes.length > 0 ? attributes : [],
