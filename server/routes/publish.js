@@ -694,19 +694,38 @@ router.get("/otodom/taxonomy", protect, async (req, res) => {
 		const taxonomyUrl =
 			"https://api.olxgroup.com/taxonomy/v1/category/urn:concept:apartments-for-rent/attributes";
 
-		// Pobierz access token użytkownika (Taxonomy API wymaga Bearer tokena)
-		const accessToken = await getOtodomAccessToken(req.user._id);
-
-		// Taxonomy API wymaga zarówno X-API-KEY jak i Bearer tokena
-		const response = await axios.get(taxonomyUrl, {
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				"X-API-KEY": appCreds.apiKey,
-				Accept: "application/json",
-				"User-Agent": "PortfelNieruchomosci",
-			},
-			timeout: 10000,
-		});
+		// Taxonomy API może wymagać tylko X-API-KEY (bez Bearer tokena)
+		// Próbujemy najpierw tylko z X-API-KEY
+		let response;
+		try {
+			response = await axios.get(taxonomyUrl, {
+				headers: {
+					"X-API-KEY": appCreds.apiKey,
+					Accept: "application/json",
+					"User-Agent": "PortfelNieruchomosci",
+				},
+				timeout: 10000,
+			});
+		} catch (firstError) {
+			// Jeśli nie zadziała, spróbuj z Bearer tokenem
+			if (
+				firstError.response?.status === 401 ||
+				firstError.response?.status === 403
+			) {
+				const accessToken = await getOtodomAccessToken(req.user._id);
+				response = await axios.get(taxonomyUrl, {
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"X-API-KEY": appCreds.apiKey,
+						Accept: "application/json",
+						"User-Agent": "PortfelNieruchomosci",
+					},
+					timeout: 10000,
+				});
+			} else {
+				throw firstError;
+			}
+		}
 
 		const attributes = response.data;
 
