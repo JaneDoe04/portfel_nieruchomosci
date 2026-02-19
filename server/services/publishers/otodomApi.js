@@ -815,9 +815,10 @@ export async function publishOtodomAdvert(apartment, userId) {
 		);
 	}
 
-	// Zgodnie z dokumentacją OLX Group API (advert-validation-rules):
-	// - price = cena główna (dla wynajmu: miesięczny czynsz)
-	// - deposit_price = kaucja – osobne pole na poziomie payloadu, NIE wewnątrz price
+	// Zgodnie z dokumentacją OLX Group API:
+	// - price = cena główna (dla wynajmu: miesięczna cena)
+	// - rent_price = opcjonalna cena czynszu (Otodom może z tego pokazywać "Czynsz" w UI)
+	// - deposit_price = kaucja – osobne pole (dla kategorii "for rent")
 	const priceObject = {
 		value: Number(apartment.price),
 		currency: "PLN",
@@ -829,6 +830,11 @@ export async function publishOtodomAdvert(apartment, userId) {
 		title, // Już zwalidowany: 5-70 znaków, no uppercase
 		description,
 		price: priceObject,
+		// Czynsz – wysyłamy rent_price, żeby na Otodom wypełnić pole "Czynsz" (Otodom/Storia)
+		rent_price: {
+			value: Number(apartment.price),
+			currency: "PLN",
+		},
 		// Kaucja – API wymaga deposit_price na najwyższym poziomie (dla kategorii "for rent")
 		...(apartment.deposit != null &&
 			apartment.deposit > 0 && {
@@ -989,7 +995,7 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 	// Buduj atrybuty zgodnie z taksonomią Otodom
 	const attributes = buildOtodomAttributes(apartment);
 
-	// price = główna cena (czynsz); deposit_price = kaucja – osobne pole (dokumentacja OLX)
+	// price + rent_price (Czynsz) + deposit_price (Kaucja)
 	const priceObject = {
 		value: Number(apartment.price),
 		currency: "PLN",
@@ -1002,6 +1008,10 @@ export async function updateOtodomAdvert(externalId, apartment, userId) {
 		title: title.substring(0, 70),
 		description,
 		price: priceObject,
+		rent_price: {
+			value: Number(apartment.price),
+			currency: "PLN",
+		},
 		...(apartment.deposit != null &&
 			apartment.deposit > 0 && {
 				deposit_price: {
