@@ -251,17 +251,40 @@ router.delete("/:apartmentId/olx", async (req, res) => {
  */
 router.post("/:apartmentId/otodom", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
+		// WAŻNE: Pobierz mieszkanie z bazy PRZED publikacją, żeby mieć najnowsze dane (w tym availableFrom)
+		// Używamy .exec() żeby mieć pewność że dane są świeże z bazy
+		let apartment = await Apartment.findById(req.params.apartmentId).exec();
 
 		if (!apartment) {
 			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
 		}
+
+		// Loguj dane mieszkania przed publikacją (dla debugowania)
+		console.log("[publish/otodom/POST] Apartment data before publish:", {
+			_id: apartment._id.toString(),
+			availableFrom: apartment.availableFrom,
+			availableFromType: typeof apartment.availableFrom,
+			availableFromISO: apartment.availableFrom ? new Date(apartment.availableFrom).toISOString().split("T")[0] : null,
+		});
 
 		if (apartment.status !== "WOLNE") {
 			return res.status(400).json({
 				message: "Można publikować tylko mieszkania ze statusem WOLNE.",
 			});
 		}
+
+		// WAŻNE: Odśwież mieszkanie z bazy PRZED publikacją, żeby mieć najnowsze dane (w tym availableFrom)
+		// To jest szczególnie ważne jeśli mieszkanie było aktualizowane tuż przed kliknięciem "Publikuj"
+		apartment = await Apartment.findById(req.params.apartmentId).exec();
+		if (!apartment) {
+			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
+		}
+		
+		console.log("[publish/otodom/POST] Refreshed apartment data before publish:", {
+			_id: apartment._id.toString(),
+			availableFrom: apartment.availableFrom,
+			availableFromISO: apartment.availableFrom ? new Date(apartment.availableFrom).toISOString().split("T")[0] : null,
+		});
 
 		// Przed publikacją: upewnij się że mieszkanie ma geokodowane współrzędne
 		// Jeśli brakuje lat/lon, geokoduj teraz (buildOtodomLocation robi to automatycznie, ale zapiszmy do mieszkania)
@@ -283,6 +306,9 @@ router.post("/:apartmentId/otodom", async (req, res) => {
 				streetName: apartment.streetName,
 				cityId: apartment.cityId,
 			});
+			
+			// Po zapisie, odśwież mieszkanie jeszcze raz żeby mieć najnowsze dane
+			apartment = await Apartment.findById(req.params.apartmentId).exec();
 		}
 
 		const result = await publishOtodomAdvert(apartment, req.user._id);

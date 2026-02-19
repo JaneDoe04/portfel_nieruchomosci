@@ -633,6 +633,14 @@ export async function publishOtodomAdvert(apartment, userId) {
 	const accessToken = await getOtodomAccessToken(userId);
 	const appCreds = await getOtodomAppCredentials();
 
+	// Loguj dane mieszkania przed budowaniem payloadu (dla debugowania)
+	console.log("[otodom/publish] Apartment data in publishOtodomAdvert:", {
+		_id: apartment._id?.toString(),
+		availableFrom: apartment.availableFrom,
+		availableFromType: typeof apartment.availableFrom,
+		availableFromISO: apartment.availableFrom ? new Date(apartment.availableFrom).toISOString().split("T")[0] : null,
+	});
+
 	const location = await buildOtodomLocation(apartment);
 
 	const titleRaw = apartment.title || "";
