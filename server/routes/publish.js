@@ -13,6 +13,7 @@ import {
 	updateOtodomAdvert,
 	deleteOtodomAdvert,
 	getOtodomAdvertStatus,
+	getOtodomAccessToken,
 } from "../services/publishers/otodomApi.js";
 
 const router = express.Router();
@@ -693,9 +694,13 @@ router.get("/otodom/taxonomy", protect, async (req, res) => {
 		const taxonomyUrl =
 			"https://api.olxgroup.com/taxonomy/v1/category/urn:concept:apartments-for-rent/attributes";
 
-		// Taxonomy API może wymagać tylko X-API-KEY bez Bearer tokena
+		// Pobierz access token użytkownika (Taxonomy API wymaga Bearer tokena)
+		const accessToken = await getOtodomAccessToken(req.user._id);
+
+		// Taxonomy API wymaga zarówno X-API-KEY jak i Bearer tokena
 		const response = await axios.get(taxonomyUrl, {
 			headers: {
+				Authorization: `Bearer ${accessToken}`,
 				"X-API-KEY": appCreds.apiKey,
 				Accept: "application/json",
 				"User-Agent": "PortfelNieruchomosci",
