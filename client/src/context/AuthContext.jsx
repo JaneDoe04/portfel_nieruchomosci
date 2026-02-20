@@ -1,25 +1,27 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import { clearAuth, setToken, setUser as persistUserToStorage, getToken } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
 
-	function persistUser(userData) {
-	const payload = {
-		_id: userData._id,
-		email: userData.email,
-		name: userData.name,
-		role: userData.role,
+function userPayload(data) {
+	return {
+		_id: data._id,
+		email: data.email,
+		name: data.name,
+		role: data.role,
 	};
-	localStorage.setItem("user", JSON.stringify(payload));
-	return payload;
 }
 
 export function AuthProvider({ children }) {
 	const [user, setUser] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const navigate = useNavigate();
 
+	// Przy starcie: jeśli jest token, zweryfikuj przez /auth/me
 	useEffect(() => {
-		const token = localStorage.getItem("token");
+		const token = getToken();
 		if (!token) {
 			setLoading(false);
 			return;
@@ -27,41 +29,55 @@ export function AuthProvider({ children }) {
 		api
 			.get("/auth/me")
 			.then(({ data }) => {
-				const payload = persistUser(data);
+				const payload = userPayload(data);
+				persistUserToStorage(payload);
 				setUser(payload);
 			})
 			.catch(() => {
-				localStorage.removeItem("token");
-				localStorage.removeItem("user");
+				clearAuth();
 				setUser(null);
 			})
 			.finally(() => setLoading(false));
 	}, []);
 
+	// Gdy użytkownik wyloguje się w innej karcie – ta karta też ma się wylogować
+	useEffect(() => {
+		const onStorage = (e) => {
+			if (e.key === "token" && e.newValue === null) {
+				setUser(null);
+				navigate("/login", { replace: true });
+			}
+		};
+		window.addEventListener("storage", onStorage);
+		return () => window.removeEventListener("storage", onStorage);
+	}, [navigate]);
+
 	const login = async (email, password) => {
 		const { data } = await api.post("/auth/login", { email, password });
-		localStorage.setItem("token", data.token);
-		const payload = persistUser(data);
+		setToken(data.token);
+		const payload = userPayload(data);
+		persistUserToStorage(payload);
 		setUser(payload);
 		return data;
 	};
 
 	const register = async (email, password, name) => {
 		const { data } = await api.post("/auth/register", { email, password, name });
-		localStorage.setItem("token", data.token);
-		const payload = persistUser(data);
+		setToken(data.token);
+		const payload = userPayload(data);
+		persistUserToStorage(payload);
 		setUser(payload);
 		return data;
 	};
 
 	const updateUser = (userData) => {
-		const payload = persistUser(userData);
+		const payload = userPayload(userData);
+		persistUserToStorage(payload);
 		setUser(payload);
 	};
 
 	const logout = () => {
-		localStorage.removeItem("token");
-		localStorage.removeItem("user");
+		clearAuth();
 		setUser(null);
 	};
 

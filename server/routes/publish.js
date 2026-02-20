@@ -19,6 +19,16 @@ import {
 
 const router = express.Router();
 
+/** Pobierz mieszkanie i zweryfikuj, że należy do zalogowanego użytkownika. Zwraca { apartment } lub { err: { status, message } }. */
+async function getApartmentForUser(apartmentId, userId) {
+	const apartment = await Apartment.findById(apartmentId).exec();
+	if (!apartment) return { err: { status: 404, message: "Mieszkanie nie znalezione." } };
+	const createdBy = apartment.createdBy?.toString?.() ?? apartment.createdBy;
+	const uid = userId?.toString?.() ?? userId;
+	if (createdBy !== uid) return { err: { status: 404, message: "Mieszkanie nie znalezione." } };
+	return { apartment };
+}
+
 /**
  * Automatyczne sprawdzanie statusu ogłoszenia przez API z retry
  * Fallback jeśli webhook nie przyjdzie
@@ -137,11 +147,8 @@ router.use(protect);
  */
 router.post("/:apartmentId/olx", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
 
 		if (apartment.status !== "WOLNE") {
 			return res.status(400).json({
@@ -173,11 +180,8 @@ router.post("/:apartmentId/olx", async (req, res) => {
  */
 router.put("/:apartmentId/olx", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
 
 		const externalId = apartment.externalIds?.olx;
 		if (!externalId) {
@@ -210,11 +214,8 @@ router.put("/:apartmentId/olx", async (req, res) => {
  */
 router.delete("/:apartmentId/olx", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
 
 		const externalId = apartment.externalIds?.olx;
 		if (!externalId) {
@@ -251,13 +252,9 @@ router.delete("/:apartmentId/olx", async (req, res) => {
  */
 router.post("/:apartmentId/otodom", async (req, res) => {
 	try {
-		// WAŻNE: Pobierz mieszkanie z bazy PRZED publikacją, żeby mieć najnowsze dane (w tym availableFrom)
-		// Używamy .exec() żeby mieć pewność że dane są świeże z bazy
-		let apartment = await Apartment.findById(req.params.apartmentId).exec();
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment: apt, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
+		let apartment = apt;
 
 		// Loguj dane mieszkania przed publikacją (dla debugowania)
 		console.log("[publish/otodom/POST] Apartment data before publish:", {
@@ -483,13 +480,8 @@ router.post("/:apartmentId/otodom", async (req, res) => {
  */
 router.put("/:apartmentId/otodom", async (req, res) => {
 	try {
-		// WAŻNE: Pobierz mieszkanie z bazy PRZED aktualizacją, żeby mieć najnowsze dane (w tym availableFrom)
-		// Używamy .exec() żeby mieć pewność że dane są świeże z bazy
-		const apartment = await Apartment.findById(req.params.apartmentId).exec();
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
 
 		// Loguj dane mieszkania przed aktualizacją (dla debugowania)
 		console.log("[publish/otodom/update] Apartment data before update:", {
@@ -576,11 +568,8 @@ router.put("/:apartmentId/otodom", async (req, res) => {
  */
 router.get("/:apartmentId/otodom/status", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
 
 		const externalId = apartment.externalIds?.otodom;
 		if (!externalId) {
@@ -703,11 +692,8 @@ router.get("/:apartmentId/otodom/status", async (req, res) => {
  */
 router.delete("/:apartmentId/otodom", async (req, res) => {
 	try {
-		const apartment = await Apartment.findById(req.params.apartmentId);
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
+		const { apartment, err } = await getApartmentForUser(req.params.apartmentId, req.user._id);
+		if (err) return res.status(err.status).json({ message: err.message });
 
 		const externalId = apartment.externalIds?.otodom;
 		if (!externalId) {

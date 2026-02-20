@@ -4,12 +4,20 @@ import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// GET /api/apartments
+// Tylko mieszkania należące do zalogowanego użytkownika
+function isOwner(apartment, userId) {
+	if (!apartment?.createdBy || !userId) return false;
+	const createdBy = apartment.createdBy.toString ? apartment.createdBy.toString() : apartment.createdBy;
+	const uid = userId.toString ? userId.toString() : userId;
+	return createdBy === uid;
+}
+
+// GET /api/apartments – tylko mieszkania użytkownika
 router.get("/", protect, async (req, res) => {
 	try {
-		// Sortujemy po dacie utworzenia rosnąco, żeby kolejność mieszkań była stabilna
-		// i nie zmieniała się przy każdej edycji (ułatwia ogarnianie listy).
-		const apartments = await Apartment.find().sort({ createdAt: 1 }).lean();
+		const apartments = await Apartment.find({ createdBy: req.user._id })
+			.sort({ createdAt: 1 })
+			.lean();
 		res.json(apartments);
 	} catch (err) {
 		res
@@ -23,6 +31,9 @@ router.get("/:id", protect, async (req, res) => {
 	try {
 		const apartment = await Apartment.findById(req.params.id).lean();
 		if (!apartment) {
+			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
+		}
+		if (!isOwner(apartment, req.user._id)) {
 			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
 		}
 		res.json(apartment);
@@ -139,15 +150,19 @@ router.put("/:id", protect, async (req, res) => {
 			allFields: Object.keys(req.body),
 		});
 
+		const existing = await Apartment.findById(req.params.id);
+		if (!existing) {
+			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
+		}
+		if (!isOwner(existing, req.user._id)) {
+			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
+		}
+
 		const apartment = await Apartment.findByIdAndUpdate(
 			req.params.id,
 			updateData,
 			{ new: true, runValidators: true },
 		);
-
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
 
 		// Loguj co zostało zapisane
 		console.log("[apartments/PUT] Apartment after update:", {
@@ -158,9 +173,6 @@ router.put("/:id", protect, async (req, res) => {
 				? apartment.availableFrom.toISOString()
 				: null,
 		});
-		if (!apartment) {
-			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
-		}
 		res.json(apartment);
 	} catch (err) {
 		res
@@ -172,10 +184,14 @@ router.put("/:id", protect, async (req, res) => {
 // DELETE /api/apartments/:id
 router.delete("/:id", protect, async (req, res) => {
 	try {
-		const apartment = await Apartment.findByIdAndDelete(req.params.id);
+		const apartment = await Apartment.findById(req.params.id);
 		if (!apartment) {
 			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
 		}
+		if (!isOwner(apartment, req.user._id)) {
+			return res.status(404).json({ message: "Mieszkanie nie znalezione." });
+		}
+		await Apartment.findByIdAndDelete(req.params.id);
 		res.json({ message: "Mieszkanie usunięte." });
 	} catch (err) {
 		res
