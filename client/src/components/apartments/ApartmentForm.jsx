@@ -43,6 +43,46 @@ const SECURITY_OPTIONS = [
 	{ value: "closed-area", label: "Teren zamknięty" },
 ];
 
+// Cechy budynku (Otodom taxonomy)
+const BUILDING_TYPE_OPTIONS = [
+	{ value: "infill", label: "Zabudowa śródścienna" },
+	{ value: "block", label: "Blok" },
+	{ value: "apartment", label: "Apartamentowiec" },
+	{ value: "house", label: "Kamienica" },
+	{ value: "ribbon", label: "Zabudowa szeregowa" },
+	{ value: "tenement", label: "Kamienica" },
+	{ value: "loft", label: "Loft" },
+];
+const BUILDING_MATERIAL_OPTIONS = [
+	{ value: "brick", label: "Cegła" },
+	{ value: "concrete", label: "Beton" },
+	{ value: "reinforced-concrete", label: "Żelbet" },
+	{ value: "cellular-concrete", label: "Beton komórkowy" },
+	{ value: "concrete-plate", label: "Płyta betonowa" },
+	{ value: "breeze-block", label: "Beton komórkowy (gazobeton)" },
+	{ value: "silicate", label: "Silikat" },
+	{ value: "hydroton", label: "Keramzyt" },
+	{ value: "wood", label: "Drewno" },
+	{ value: "other", label: "Inne" },
+];
+const WINDOWS_TYPE_OPTIONS = [
+	{ value: "plastic", label: "Plastikowe" },
+	{ value: "aluminium", label: "Aluminiowe" },
+	{ value: "wooden", label: "Drewniane" },
+];
+const ENERGY_CERTIFICATE_OPTIONS = [
+	{ value: "a-plus", label: "A+" },
+	{ value: "a", label: "A" },
+	{ value: "b", label: "B" },
+	{ value: "b-minus", label: "B-" },
+	{ value: "c", label: "C" },
+	{ value: "d", label: "D" },
+	{ value: "e", label: "E" },
+	{ value: "f", label: "F" },
+	{ value: "g", label: "G" },
+	{ value: "exempt", label: "Zwolnione" },
+];
+
 export default function ApartmentForm({
 	apartment = null,
 	onSave,
@@ -69,6 +109,11 @@ export default function ApartmentForm({
 		mediaTypes: [],
 		equipmentTypes: [],
 		security: [],
+		constructionYear: "",
+		buildingType: "",
+		buildingMaterial: "",
+		windowsType: "",
+		energyCertificate: "",
 		status: "WOLNE", // status i data końca umowy będziemy edytować gdzie indziej
 		contractEndDate: "",
 		images: [],
@@ -139,6 +184,11 @@ export default function ApartmentForm({
 				mediaTypes: Array.isArray(apartment.mediaTypes) ? [...apartment.mediaTypes] : [],
 				equipmentTypes: Array.isArray(apartment.equipmentTypes) ? [...apartment.equipmentTypes] : [],
 				security: Array.isArray(apartment.security) ? [...apartment.security] : [],
+				constructionYear: apartment.constructionYear ?? "",
+				buildingType: apartment.buildingType || "",
+				buildingMaterial: apartment.buildingMaterial || "",
+				windowsType: apartment.windowsType || "",
+				energyCertificate: apartment.energyCertificate || "",
 				status: apartment.status || "WOLNE",
 				contractEndDate: apartment.contractEndDate
 					? apartment.contractEndDate.slice(0, 10)
@@ -314,6 +364,11 @@ export default function ApartmentForm({
 				mediaTypes: form.mediaTypes || [],
 				equipmentTypes: form.equipmentTypes || [],
 				security: form.security || [],
+				constructionYear: form.constructionYear ? Number(form.constructionYear) : undefined,
+				buildingType: form.buildingType || undefined,
+				buildingMaterial: form.buildingMaterial || undefined,
+				windowsType: form.windowsType || undefined,
+				energyCertificate: form.energyCertificate || undefined,
 				// status i contractEndDate celowo NIE wysyłamy z tego formularza –
 				// będą zarządzane z panelu głównego
 				photos: form.images,
@@ -676,6 +731,104 @@ export default function ApartmentForm({
 										{opt.label}
 									</button>
 								))}
+							</div>
+						</div>
+
+						{/* Cechy budynku */}
+						<div className='border-t border-slate-200 pt-4 mt-4'>
+							<h3 className='text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2'>
+								<span className='text-teal-600'>🏢</span>
+								Cechy budynku
+							</h3>
+							<div className='grid grid-cols-2 gap-4'>
+								<div>
+									<label className='block text-sm font-medium text-slate-700 mb-1'>
+										Rok budowy
+									</label>
+									<input
+										type='number'
+										name='constructionYear'
+										value={form.constructionYear}
+										onChange={handleChange}
+										min='1800'
+										max='2100'
+										step='1'
+										className='w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+										placeholder='np. 2020'
+									/>
+								</div>
+								<div>
+									<label className='block text-sm font-medium text-slate-700 mb-1'>
+										Rodzaj zabudowy
+									</label>
+									<select
+										name='buildingType'
+										value={form.buildingType}
+										onChange={handleChange}
+										className='w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+									>
+										<option value=''>Wybierz...</option>
+										{BUILDING_TYPE_OPTIONS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+								</div>
+								<div>
+									<label className='block text-sm font-medium text-slate-700 mb-1'>
+										Materiał budynku
+									</label>
+									<select
+										name='buildingMaterial'
+										value={form.buildingMaterial}
+										onChange={handleChange}
+										className='w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+									>
+										<option value=''>Wybierz...</option>
+										{BUILDING_MATERIAL_OPTIONS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+								</div>
+								<div>
+									<label className='block text-sm font-medium text-slate-700 mb-1'>
+										Okna
+									</label>
+									<select
+										name='windowsType'
+										value={form.windowsType}
+										onChange={handleChange}
+										className='w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+									>
+										<option value=''>Wybierz...</option>
+										{WINDOWS_TYPE_OPTIONS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+								</div>
+								<div>
+									<label className='block text-sm font-medium text-slate-700 mb-1'>
+										Certyfikat energetyczny
+									</label>
+									<select
+										name='energyCertificate'
+										value={form.energyCertificate}
+										onChange={handleChange}
+										className='w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+									>
+										<option value=''>Wybierz...</option>
+										{ENERGY_CERTIFICATE_OPTIONS.map((opt) => (
+											<option key={opt.value} value={opt.value}>
+												{opt.label}
+											</option>
+										))}
+									</select>
+								</div>
 							</div>
 						</div>
 

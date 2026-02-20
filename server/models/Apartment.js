@@ -134,6 +134,38 @@ const apartmentSchema = new mongoose.Schema(
       enum: ['alarm', 'anti-burglary-door', 'entryphone', 'roller-shutters', 'closed-area', 'monitoring'],
       trim: true,
     }],
+    // Cechy budynku (Otodom taxonomy)
+    constructionYear: {
+      type: Number,
+      default: null,
+      min: 1800,
+      max: 2100,
+      comment: 'Rok budowy (Otodom: urn:concept:construction-year)',
+    },
+    buildingType: {
+      type: String,
+      default: null,
+      enum: ['infill', 'block', 'apartment', 'house', 'ribbon', 'tenement', 'loft'],
+      comment: 'Rodzaj zabudowy (Otodom: urn:concept:building-type)',
+    },
+    buildingMaterial: {
+      type: String,
+      default: null,
+      enum: ['silicate', 'hydroton', 'other', 'brick', 'concrete', 'breeze-block', 'cellular-concrete', 'concrete-plate', 'reinforced-concrete', 'wood'],
+      comment: 'Materiał budynku (Otodom: urn:concept:building-material)',
+    },
+    windowsType: {
+      type: String,
+      default: null,
+      enum: ['plastic', 'aluminium', 'wooden'],
+      comment: 'Typ okien (Otodom: urn:concept:windows-type)',
+    },
+    energyCertificate: {
+      type: String,
+      default: null,
+      enum: ['a', 'a-plus', 'b', 'b-minus', 'c', 'd', 'e', 'f', 'g', 'exempt'],
+      comment: 'Certyfikat energetyczny (Otodom: urn:concept:energy-certificate)',
+    },
     cityId: {
       type: Number,
       default: null,

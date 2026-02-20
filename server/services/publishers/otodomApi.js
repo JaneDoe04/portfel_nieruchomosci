@@ -673,7 +673,98 @@ function buildOtodomAttributes(apartment) {
 		}
 	}
 
-	// 12. Czynsz i kaucja - próba dodania jako atrybuty
+	// 12. Cechy budynku - OPCJONALNE
+	// Rok budowy (construction-year)
+	if (apartment.constructionYear != null && apartment.constructionYear > 0) {
+		attributes.push({
+			urn: "urn:concept:construction-year",
+			value: String(apartment.constructionYear),
+		});
+	}
+
+	// Rodzaj zabudowy (building-type)
+	if (apartment.buildingType) {
+		const buildingTypeMap = {
+			infill: "urn:concept:infill",
+			block: "urn:concept:block",
+			apartment: "urn:concept:apartment",
+			house: "urn:concept:house",
+			ribbon: "urn:concept:ribbon",
+			tenement: "urn:concept:tenement",
+			loft: "urn:concept:loft",
+		};
+		const buildingTypeUrn = buildingTypeMap[apartment.buildingType];
+		if (buildingTypeUrn) {
+			attributes.push({
+				urn: "urn:concept:building-type",
+				value: buildingTypeUrn,
+			});
+		}
+	}
+
+	// Materiał budynku (building-material)
+	if (apartment.buildingMaterial) {
+		const buildingMaterialMap = {
+			silicate: "urn:concept:silicate",
+			hydroton: "urn:concept:hydroton",
+			other: "urn:concept:other",
+			brick: "urn:concept:brick",
+			concrete: "urn:concept:concrete",
+			"breeze-block": "urn:concept:breeze-block",
+			"cellular-concrete": "urn:concept:cellular-concrete",
+			"concrete-plate": "urn:concept:concrete-plate",
+			"reinforced-concrete": "urn:concept:reinforced-concrete",
+			wood: "urn:concept:wood",
+		};
+		const buildingMaterialUrn = buildingMaterialMap[apartment.buildingMaterial];
+		if (buildingMaterialUrn) {
+			attributes.push({
+				urn: "urn:concept:building-material",
+				value: buildingMaterialUrn,
+			});
+		}
+	}
+
+	// Typ okien (windows-type)
+	if (apartment.windowsType) {
+		const windowsTypeMap = {
+			plastic: "urn:concept:plastic",
+			aluminium: "urn:concept:aluminium",
+			wooden: "urn:concept:wooden",
+		};
+		const windowsTypeUrn = windowsTypeMap[apartment.windowsType];
+		if (windowsTypeUrn) {
+			attributes.push({
+				urn: "urn:concept:windows-type",
+				value: windowsTypeUrn,
+			});
+		}
+	}
+
+	// Certyfikat energetyczny (energy-certificate)
+	if (apartment.energyCertificate) {
+		const energyCertMap = {
+			"a-plus": "urn:concept:a-plus",
+			a: "urn:concept:a",
+			b: "urn:concept:b",
+			"b-minus": "urn:concept:b-minus",
+			c: "urn:concept:c",
+			d: "urn:concept:d",
+			e: "urn:concept:e",
+			f: "urn:concept:f",
+			g: "urn:concept:g",
+			exempt: "urn:concept:exempt",
+		};
+		const energyCertUrn = energyCertMap[apartment.energyCertificate];
+		if (energyCertUrn) {
+			attributes.push({
+				urn: "urn:concept:energy-certificate",
+				value: energyCertUrn,
+			});
+		}
+	}
+
+	// 13. Czynsz i kaucja - próba dodania jako atrybuty
 	// Otodom może mieć te pola w taksonomii, ale nie są widoczne w podstawowej dokumentacji
 	// Próbujemy najbardziej prawdopodobne URN-y - jeśli API zwróci błąd walidacji,
 	// będziemy wiedzieć które pola są nieprawidłowe i możemy je usunąć
