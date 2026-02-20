@@ -90,16 +90,16 @@ export default function ApartmentList() {
 		p != null ? `${Number(p).toLocaleString("pl-PL")} zł` : "–";
 
 	return (
-		<div className='p-6 lg:p-8'>
-			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6'>
-				<h1 className='text-2xl font-bold text-slate-800'>Mieszkania</h1>
+		<div className='p-4 sm:p-6 lg:p-8 pl-16 sm:pl-6 lg:pl-8'>
+			<div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6'>
+				<h1 className='text-xl sm:text-2xl font-bold text-slate-800'>Mieszkania</h1>
 				<button
 					type='button'
 					onClick={openAdd}
-					className='inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 shadow-sm'
+					className='inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 shadow-sm text-sm sm:text-base'
 				>
-					<Plus className='w-5 h-5' />
-					Dodaj mieszkanie
+					<Plus className='w-4 h-4 sm:w-5 sm:h-5' />
+					<span className="sm:inline">Dodaj mieszkanie</span>
 				</button>
 			</div>
 
@@ -116,148 +116,277 @@ export default function ApartmentList() {
 					</p>
 				</div>
 			) : (
-				<div className='bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm'>
-					<div className='overflow-x-auto'>
-						<table className='w-full'>
-							<thead>
-								<tr className='bg-slate-50 border-b border-slate-200'>
-									<th className='text-left py-4 px-6 text-sm font-semibold text-slate-700'>
-										Tytuł / Adres
-									</th>
-									<th className='text-right py-4 px-6 text-sm font-semibold text-slate-700'>
-										Cena
-									</th>
-									<th className='text-right py-4 px-6 text-sm font-semibold text-slate-700'>
-										m²
-									</th>
-									<th className='text-left py-4 px-6 text-sm font-semibold text-slate-700'>
-										Szczegóły
-									</th>
-									<th className='w-24 py-4 px-6' />
-								</tr>
-							</thead>
-							<tbody>
-								{apartments.map((apt) => (
-									<tr
-										key={apt._id}
-										className='border-b border-slate-100 hover:bg-slate-50/50 transition-colors align-middle'
-									>
-										<td className='py-4 px-6'>
-											<div className='flex items-center gap-4'>
-												{getMainPhotoUrl(apt) ? (
-													<img
-														src={getMainPhotoUrl(apt)}
-														alt={apt.title}
-														className='w-32 h-24 rounded-lg object-cover flex-shrink-0 border border-slate-200'
-													/>
-												) : (
-													<div className='w-32 h-24 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 flex-shrink-0'>
-														<Building2 className='w-8 h-8' />
-													</div>
-												)}
-												<div>
-													<div className='font-semibold text-slate-900'>
-														{apt.title}
-													</div>
-													<div className='text-sm text-slate-500'>
-														{apt.address}
-													</div>
-												</div>
-											</div>
-										</td>
-										<td className='py-4 px-6 text-right font-medium text-slate-800'>
+				<>
+					{/* Mobile card view */}
+					<div className='lg:hidden space-y-4'>
+						{apartments.map((apt) => (
+							<div
+								key={apt._id}
+								className='bg-white rounded-xl border border-slate-200 p-4 shadow-sm'
+							>
+								<div className='flex items-start gap-3 mb-3'>
+									{getMainPhotoUrl(apt) ? (
+										<img
+											src={getMainPhotoUrl(apt)}
+											alt={apt.title}
+											className='w-20 h-16 rounded-lg object-cover flex-shrink-0 border border-slate-200'
+										/>
+									) : (
+										<div className='w-20 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 flex-shrink-0'>
+											<Building2 className='w-6 h-6' />
+										</div>
+									)}
+									<div className='flex-1 min-w-0'>
+										<div className='font-semibold text-slate-900 text-sm mb-1 truncate'>
+											{apt.title}
+										</div>
+										<div className='text-xs text-slate-500 truncate mb-2'>
+											{apt.address}
+										</div>
+										<StatusBadge status={apt.status} />
+									</div>
+									<div className='flex items-center gap-1 shrink-0'>
+										<button
+											type='button'
+											onClick={() => openEdit(apt)}
+											className='p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary-600'
+											title='Edytuj'
+										>
+											<Pencil className='w-4 h-4' />
+										</button>
+										<button
+											type='button'
+											onClick={() => handleDelete(apt._id)}
+											className='p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600'
+											title='Usuń'
+										>
+											<Trash2 className='w-4 h-4' />
+										</button>
+									</div>
+								</div>
+								<div className='grid grid-cols-2 gap-3 text-sm border-t border-slate-100 pt-3'>
+									<div>
+										<div className='text-xs text-slate-500 mb-0.5'>Cena</div>
+										<div className='font-medium text-slate-800'>
 											{formatPrice(apt.price)}
-											{apt.rentCharges && (
-												<div className='text-xs text-slate-500 mt-0.5'>
-													+ {formatPrice(apt.rentCharges)} czynsz
-												</div>
-											)}
-										</td>
-										<td className='py-4 px-6 text-right text-slate-600'>
+										</div>
+										{apt.rentCharges && (
+											<div className='text-xs text-slate-500 mt-0.5'>
+												+ {formatPrice(apt.rentCharges)} czynsz
+											</div>
+										)}
+									</div>
+									<div>
+										<div className='text-xs text-slate-500 mb-0.5'>Powierzchnia</div>
+										<div className='font-medium text-slate-800'>
 											{apt.area ?? "–"} m²
-											{apt.numberOfRooms && (
-												<div className='text-xs text-slate-500 mt-0.5'>
-													{apt.numberOfRooms} pokoi
-												</div>
-											)}
-										</td>
-										<td className='py-4 px-6 text-sm text-slate-600'>
-											<div className='space-y-1'>
-												{apt.floor && (
-													<div>
-														<span className='text-slate-500'>Piętro: </span>
-														<span className='font-medium'>
-															{apt.floor === 'ground-floor' ? 'Parter' :
-															 apt.floor === '1st-floor' ? '1. piętro' :
-															 apt.floor === '2nd-floor' ? '2. piętro' :
-															 apt.floor === '3rd-floor' ? '3. piętro' :
-															 apt.floor === '4th-floor' ? '4. piętro' :
-															 apt.floor === '5th-floor' ? '5. piętro' :
-															 apt.floor === '6th-floor' ? '6. piętro' :
-															 apt.floor === '7th-floor' ? '7. piętro' :
-															 apt.floor === '8th-floor' ? '8. piętro' :
-															 apt.floor === '9th-floor' ? '9. piętro' :
-															 apt.floor === '10th-floor' ? '10. piętro' :
-															 apt.floor === '11th-floor-and-above' ? '11+ piętro' :
-															 apt.floor === 'cellar' ? 'Piwnica' :
-															 apt.floor === 'garret' ? 'Poddasze' : apt.floor}
-														</span>
-													</div>
-												)}
-												{apt.heating && (
-													<div>
-														<span className='text-slate-500'>Ogrzewanie: </span>
-														<span className='font-medium'>
-															{apt.heating === 'boiler-room' ? 'Kotłownia' :
-															 apt.heating === 'gas' ? 'Gazowe' :
-															 apt.heating === 'electrical' ? 'Elektryczne' :
-															 apt.heating === 'urban' ? 'Miejskie' :
-															 apt.heating === 'tiled-stove' ? 'Piec kaflowy' :
-															 apt.heating === 'other' ? 'Inne' : apt.heating}
-														</span>
-													</div>
-												)}
-												{apt.finishingStatus && (
-													<div>
-														<span className='text-slate-500'>Stan: </span>
-														<span className='font-medium'>
-															{apt.finishingStatus === 'to-complete' ? 'Do wykończenia' :
-															 apt.finishingStatus === 'ready-to-use' ? 'Gotowe' :
-															 apt.finishingStatus === 'in-renovation' ? 'W remoncie' : apt.finishingStatus}
-														</span>
-													</div>
-												)}
-												{apt.hasElevator && (
-													<div className='text-emerald-600 font-medium'>✓ Winda</div>
-												)}
+										</div>
+										{apt.numberOfRooms && (
+											<div className='text-xs text-slate-500 mt-0.5'>
+												{apt.numberOfRooms} pokoi
 											</div>
-										</td>
-										<td className='py-4 px-6'>
-											<div className='flex items-center gap-2'>
-												<button
-													type='button'
-													onClick={() => openEdit(apt)}
-													className='p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary-600'
-													title='Edytuj'
-												>
-													<Pencil className='w-4 h-4' />
-												</button>
-												<button
-													type='button'
-													onClick={() => handleDelete(apt._id)}
-													className='p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600'
-													title='Usuń'
-												>
-													<Trash2 className='w-4 h-4' />
-												</button>
+										)}
+									</div>
+								</div>
+								{(apt.floor || apt.heating || apt.finishingStatus || apt.hasElevator) && (
+									<div className='mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600 space-y-1'>
+										{apt.floor && (
+											<div>
+												<span className='text-slate-500'>Piętro: </span>
+												<span className='font-medium'>
+													{apt.floor === 'ground-floor' ? 'Parter' :
+													 apt.floor === '1st-floor' ? '1. piętro' :
+													 apt.floor === '2nd-floor' ? '2. piętro' :
+													 apt.floor === '3rd-floor' ? '3. piętro' :
+													 apt.floor === '4th-floor' ? '4. piętro' :
+													 apt.floor === '5th-floor' ? '5. piętro' :
+													 apt.floor === '6th-floor' ? '6. piętro' :
+													 apt.floor === '7th-floor' ? '7. piętro' :
+													 apt.floor === '8th-floor' ? '8. piętro' :
+													 apt.floor === '9th-floor' ? '9. piętro' :
+													 apt.floor === '10th-floor' ? '10. piętro' :
+													 apt.floor === '11th-floor-and-above' ? '11+ piętro' :
+													 apt.floor === 'cellar' ? 'Piwnica' :
+													 apt.floor === 'garret' ? 'Poddasze' : apt.floor}
+												</span>
 											</div>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+										)}
+										{apt.heating && (
+											<div>
+												<span className='text-slate-500'>Ogrzewanie: </span>
+												<span className='font-medium'>
+													{apt.heating === 'boiler-room' ? 'Kotłownia' :
+													 apt.heating === 'gas' ? 'Gazowe' :
+													 apt.heating === 'electrical' ? 'Elektryczne' :
+													 apt.heating === 'urban' ? 'Miejskie' :
+													 apt.heating === 'tiled-stove' ? 'Piec kaflowy' :
+													 apt.heating === 'other' ? 'Inne' : apt.heating}
+												</span>
+											</div>
+										)}
+										{apt.finishingStatus && (
+											<div>
+												<span className='text-slate-500'>Stan: </span>
+												<span className='font-medium'>
+													{apt.finishingStatus === 'to-complete' ? 'Do wykończenia' :
+													 apt.finishingStatus === 'ready-to-use' ? 'Gotowe' :
+													 apt.finishingStatus === 'in-renovation' ? 'W remoncie' : apt.finishingStatus}
+												</span>
+											</div>
+										)}
+										{apt.hasElevator && (
+											<div className='text-emerald-600 font-medium'>✓ Winda</div>
+										)}
+									</div>
+								)}
+							</div>
+						))}
 					</div>
-				</div>
+
+					{/* Desktop table view */}
+					<div className='hidden lg:block bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm'>
+						<div className='overflow-x-auto'>
+							<table className='w-full'>
+								<thead>
+									<tr className='bg-slate-50 border-b border-slate-200'>
+										<th className='text-left py-4 px-6 text-sm font-semibold text-slate-700'>
+											Tytuł / Adres
+										</th>
+										<th className='text-right py-4 px-6 text-sm font-semibold text-slate-700'>
+											Cena
+										</th>
+										<th className='text-right py-4 px-6 text-sm font-semibold text-slate-700'>
+											m²
+										</th>
+										<th className='text-left py-4 px-6 text-sm font-semibold text-slate-700'>
+											Szczegóły
+										</th>
+										<th className='w-24 py-4 px-6' />
+									</tr>
+								</thead>
+								<tbody>
+									{apartments.map((apt) => (
+										<tr
+											key={apt._id}
+											className='border-b border-slate-100 hover:bg-slate-50/50 transition-colors align-middle'
+										>
+											<td className='py-4 px-6'>
+												<div className='flex items-center gap-4'>
+													{getMainPhotoUrl(apt) ? (
+														<img
+															src={getMainPhotoUrl(apt)}
+															alt={apt.title}
+															className='w-32 h-24 rounded-lg object-cover flex-shrink-0 border border-slate-200'
+														/>
+													) : (
+														<div className='w-32 h-24 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 flex-shrink-0'>
+															<Building2 className='w-8 h-8' />
+														</div>
+													)}
+													<div>
+														<div className='font-semibold text-slate-900'>
+															{apt.title}
+														</div>
+														<div className='text-sm text-slate-500'>
+															{apt.address}
+														</div>
+													</div>
+												</div>
+											</td>
+											<td className='py-4 px-6 text-right font-medium text-slate-800'>
+												{formatPrice(apt.price)}
+												{apt.rentCharges && (
+													<div className='text-xs text-slate-500 mt-0.5'>
+														+ {formatPrice(apt.rentCharges)} czynsz
+													</div>
+												)}
+											</td>
+											<td className='py-4 px-6 text-right text-slate-600'>
+												{apt.area ?? "–"} m²
+												{apt.numberOfRooms && (
+													<div className='text-xs text-slate-500 mt-0.5'>
+														{apt.numberOfRooms} pokoi
+													</div>
+												)}
+											</td>
+											<td className='py-4 px-6 text-sm text-slate-600'>
+												<div className='space-y-1'>
+													{apt.floor && (
+														<div>
+															<span className='text-slate-500'>Piętro: </span>
+															<span className='font-medium'>
+																{apt.floor === 'ground-floor' ? 'Parter' :
+																 apt.floor === '1st-floor' ? '1. piętro' :
+																 apt.floor === '2nd-floor' ? '2. piętro' :
+																 apt.floor === '3rd-floor' ? '3. piętro' :
+																 apt.floor === '4th-floor' ? '4. piętro' :
+																 apt.floor === '5th-floor' ? '5. piętro' :
+																 apt.floor === '6th-floor' ? '6. piętro' :
+																 apt.floor === '7th-floor' ? '7. piętro' :
+																 apt.floor === '8th-floor' ? '8. piętro' :
+																 apt.floor === '9th-floor' ? '9. piętro' :
+																 apt.floor === '10th-floor' ? '10. piętro' :
+																 apt.floor === '11th-floor-and-above' ? '11+ piętro' :
+																 apt.floor === 'cellar' ? 'Piwnica' :
+																 apt.floor === 'garret' ? 'Poddasze' : apt.floor}
+															</span>
+														</div>
+													)}
+													{apt.heating && (
+														<div>
+															<span className='text-slate-500'>Ogrzewanie: </span>
+															<span className='font-medium'>
+																{apt.heating === 'boiler-room' ? 'Kotłownia' :
+																 apt.heating === 'gas' ? 'Gazowe' :
+																 apt.heating === 'electrical' ? 'Elektryczne' :
+																 apt.heating === 'urban' ? 'Miejskie' :
+																 apt.heating === 'tiled-stove' ? 'Piec kaflowy' :
+																 apt.heating === 'other' ? 'Inne' : apt.heating}
+															</span>
+														</div>
+													)}
+													{apt.finishingStatus && (
+														<div>
+															<span className='text-slate-500'>Stan: </span>
+															<span className='font-medium'>
+																{apt.finishingStatus === 'to-complete' ? 'Do wykończenia' :
+																 apt.finishingStatus === 'ready-to-use' ? 'Gotowe' :
+																 apt.finishingStatus === 'in-renovation' ? 'W remoncie' : apt.finishingStatus}
+															</span>
+														</div>
+													)}
+													{apt.hasElevator && (
+														<div className='text-emerald-600 font-medium'>✓ Winda</div>
+													)}
+												</div>
+											</td>
+											<td className='py-4 px-6'>
+												<div className='flex items-center gap-2'>
+													<button
+														type='button'
+														onClick={() => openEdit(apt)}
+														className='p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-primary-600'
+														title='Edytuj'
+													>
+														<Pencil className='w-4 h-4' />
+													</button>
+													<button
+														type='button'
+														onClick={() => handleDelete(apt._id)}
+														className='p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600'
+														title='Usuń'
+													>
+														<Trash2 className='w-4 h-4' />
+													</button>
+												</div>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</>
 			)}
 
 			{modalOpen && (

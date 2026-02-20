@@ -388,11 +388,11 @@ export default function ApartmentForm({
 			onClick={onClose}
 		>
 			<div
-				className='bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col'
+				className='bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col mx-4 sm:mx-0'
 				onClick={(e) => e.stopPropagation()}
 			>
-				<div className='flex items-center justify-between px-6 py-4 border-b border-slate-200'>
-					<h2 className='text-lg font-semibold text-slate-800'>
+				<div className='flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200'>
+					<h2 className='text-base sm:text-lg font-semibold text-slate-800'>
 						{apartment ? "Edytuj mieszkanie" : "Dodaj mieszkanie"}
 					</h2>
 					<button
@@ -407,7 +407,7 @@ export default function ApartmentForm({
 					onSubmit={handleSubmit}
 					className='flex flex-col flex-1 overflow-hidden'
 				>
-					<div className='px-6 py-4 overflow-y-auto space-y-4'>
+					<div className='px-4 sm:px-6 py-4 overflow-y-auto space-y-4'>
 						{error && (
 							<div className='p-3 rounded-lg bg-red-50 text-red-700 text-sm'>
 								{error}
@@ -426,8 +426,8 @@ export default function ApartmentForm({
 								placeholder='np. Mieszkanie 2-pokojowe, Śródmieście'
 							/>
 						</div>
-						<div className='grid grid-cols-2 gap-4'>
-							<div className='col-span-2'>
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+							<div className='col-span-1 sm:col-span-2'>
 								<label className='block text-sm font-medium text-slate-700 mb-1'>
 									Ulica *
 								</label>
@@ -467,7 +467,7 @@ export default function ApartmentForm({
 									pattern='\d{2}-\d{3}'
 								/>
 							</div>
-							<div className='col-span-2'>
+							<div className='col-span-1 sm:col-span-2'>
 								<label className='block text-sm font-medium text-slate-700 mb-1'>
 									Miasto *
 								</label>
@@ -481,7 +481,7 @@ export default function ApartmentForm({
 								/>
 							</div>
 						</div>
-						<div className='grid grid-cols-3 gap-4'>
+						<div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
 							<div>
 								<label className='block text-sm font-medium text-slate-700 mb-1'>
 									Cena (zł/mies.) *
@@ -527,7 +527,7 @@ export default function ApartmentForm({
 								/>
 							</div>
 						</div>
-						<div className='grid grid-cols-2 gap-4'>
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 							<div>
 								<label className='block text-sm font-medium text-slate-700 mb-1'>
 									Ogrzewanie
@@ -577,7 +577,7 @@ export default function ApartmentForm({
 								</select>
 							</div>
 						</div>
-						<div className='grid grid-cols-2 gap-4'>
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 							<div>
 								<label className='block text-sm font-medium text-slate-700 mb-1'>
 									Stan wykończenia
@@ -595,7 +595,7 @@ export default function ApartmentForm({
 								</select>
 							</div>
 						</div>
-						<div className='grid grid-cols-2 gap-4'>
+						<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 							<div>
 								<label className='block text-sm font-medium text-slate-700 mb-1'>
 									Czynsz (zł/mies.)
@@ -737,10 +737,9 @@ export default function ApartmentForm({
 						{/* Cechy budynku */}
 						<div className='border-t border-slate-200 pt-4 mt-4'>
 							<h3 className='text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2'>
-								<span className='text-teal-600'>🏢</span>
 								Cechy budynku
 							</h3>
-							<div className='grid grid-cols-2 gap-4'>
+							<div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 								<div>
 									<label className='block text-sm font-medium text-slate-700 mb-1'>
 										Rok budowy
@@ -935,18 +934,18 @@ export default function ApartmentForm({
 							</div>
 						</div>
 					</div>
-					<div className='px-6 py-4 border-t border-slate-200 flex justify-end gap-3'>
+					<div className='px-4 sm:px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row justify-end gap-3'>
 						<button
 							type='button'
 							onClick={onClose}
-							className='px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50'
+							className='px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm sm:text-base'
 						>
 							Anuluj
 						</button>
 						<button
 							type='submit'
 							disabled={saving}
-							className='px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50'
+							className='px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 text-sm sm:text-base'
 						>
 							{saving ? "Zapisywanie..." : apartment ? "Zapisz" : "Dodaj"}
 						</button>

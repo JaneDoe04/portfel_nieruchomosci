@@ -129,19 +129,19 @@ export default function ApiSettings() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">Konfiguracja API</h1>
-        <p className="text-slate-600">
+    <div className="p-4 sm:p-6 lg:p-8 pl-16 sm:pl-6 lg:pl-8">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">Konfiguracja API</h1>
+        <p className="text-sm sm:text-base text-slate-600">
           Skonfiguruj integrację z OLX i Otodom, aby automatycznie publikować ogłoszenia.
         </p>
         <a
           href="https://developer.olx.pl/"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 mt-4 text-primary-600 hover:text-primary-700 text-sm"
+          className="inline-flex items-center gap-2 mt-3 sm:mt-4 text-primary-600 hover:text-primary-700 text-xs sm:text-sm"
         >
-          <ExternalLink className="w-4 h-4" />
+          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
           Zarejestruj się w OLX Developer Portal
         </a>
       </div>
@@ -154,10 +154,10 @@ export default function ApiSettings() {
         <div className="mb-4 p-4 rounded-lg bg-green-50 text-green-700 text-sm">{success}</div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* OLX Configuration */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div className="flex items-center gap-3">
               <Key className="w-5 h-5 text-orange-600" />
               <h2 className="text-lg font-semibold text-slate-800">OLX</h2>
@@ -220,12 +220,12 @@ export default function ApiSettings() {
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={() => handleSave('olx')}
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50 text-sm"
               >
                 <Save className="w-4 h-4" />
                 Zapisz
@@ -235,7 +235,7 @@ export default function ApiSettings() {
                 <button
                   type="button"
                   onClick={() => handleAuthorize('olx')}
-                  className="px-4 py-2 rounded-lg border border-primary-600 text-primary-600 font-medium hover:bg-primary-50"
+                  className="px-4 py-2 rounded-lg border border-primary-600 text-primary-600 font-medium hover:bg-primary-50 text-sm"
                 >
                   Autoryzuj
                 </button>
@@ -245,8 +245,8 @@ export default function ApiSettings() {
         </div>
 
         {/* Otodom Configuration */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div className="flex items-center gap-3">
               <Key className="w-5 h-5 text-blue-600" />
               <h2 className="text-lg font-semibold text-slate-800">Otodom</h2>
@@ -309,12 +309,12 @@ export default function ApiSettings() {
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={() => handleSave('otodom')}
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50 text-sm"
               >
                 <Save className="w-4 h-4" />
                 Zapisz
@@ -324,7 +324,7 @@ export default function ApiSettings() {
                 <button
                   type="button"
                   onClick={() => handleAuthorize('otodom')}
-                  className="px-4 py-2 rounded-lg border border-primary-600 text-primary-600 font-medium hover:bg-primary-50"
+                  className="px-4 py-2 rounded-lg border border-primary-600 text-primary-600 font-medium hover:bg-primary-50 text-sm"
                 >
                   Autoryzuj
                 </button>
@@ -334,7 +334,7 @@ export default function ApiSettings() {
         </div>
       </div>
 
-      <div className="mt-8 bg-slate-50 rounded-lg p-4 text-sm text-slate-600">
+      <div className="mt-6 sm:mt-8 bg-slate-50 rounded-lg p-4 text-xs sm:text-sm text-slate-600">
         <p className="font-medium mb-2">💡 Wskazówka:</p>
         <p>
           Po zapisaniu credentials, kliknij "Autoryzuj", aby połączyć aplikację z Twoim kontem OLX/Otodom.

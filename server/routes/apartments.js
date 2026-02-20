@@ -1,10 +1,11 @@
 import express from "express";
 import Apartment from "../models/Apartment.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // GET /api/apartments
-router.get("/", async (req, res) => {
+router.get("/", protect, async (req, res) => {
 	try {
 		// Sortujemy po dacie utworzenia rosnąco, żeby kolejność mieszkań była stabilna
 		// i nie zmieniała się przy każdej edycji (ułatwia ogarnianie listy).
@@ -18,7 +19,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/apartments/:id
-router.get("/:id", async (req, res) => {
+router.get("/:id", protect, async (req, res) => {
 	try {
 		const apartment = await Apartment.findById(req.params.id).lean();
 		if (!apartment) {
@@ -33,7 +34,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST /api/apartments
-router.post("/", async (req, res) => {
+router.post("/", protect, async (req, res) => {
 	try {
 		// Jeśli brakuje address, zbuduj go z nowych pól (street, streetNumber, postalCode, city)
 		let address = req.body.address;
@@ -56,9 +57,8 @@ router.post("/", async (req, res) => {
 
 		const apartment = await Apartment.create({
 			...req.body,
-			address: address || req.body.address, // Upewnij się że address jest ustawione
-			// W trybie bez logowania pole createdBy zostawiamy puste
-			createdBy: null,
+			address: address || req.body.address,
+			createdBy: req.user._id,
 		});
 		res.status(201).json(apartment);
 	} catch (err) {
@@ -69,7 +69,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/apartments/:id
-router.put("/:id", async (req, res) => {
+router.put("/:id", protect, async (req, res) => {
 	try {
 		// Jeśli brakuje address, zbuduj go z nowych pól (street, streetNumber, postalCode, city)
 		let address = req.body.address;
@@ -170,7 +170,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/apartments/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", protect, async (req, res) => {
 	try {
 		const apartment = await Apartment.findByIdAndDelete(req.params.id);
 		if (!apartment) {

@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { v2 as cloudinary } from 'cloudinary';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -60,8 +61,8 @@ const uploadBufferToCloudinary = (buffer, opts = {}) =>
     stream.end(buffer);
   });
 
-// POST /api/uploads - upload single image file, returns URL
-router.post('/', upload.single('image'), async (req, res) => {
+// POST /api/uploads - upload single image file, returns URL (protected)
+router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'Brak pliku.' });

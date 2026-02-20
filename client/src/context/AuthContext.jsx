@@ -3,45 +3,60 @@ import api from "../api/axios";
 
 const AuthContext = createContext(null);
 
+	function persistUser(userData) {
+	const payload = {
+		_id: userData._id,
+		email: userData.email,
+		name: userData.name,
+		role: userData.role,
+	};
+	localStorage.setItem("user", JSON.stringify(payload));
+	return payload;
+}
+
 export function AuthProvider({ children }) {
 	const [user, setUser] = useState(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const token = localStorage.getItem("token");
-		const saved = localStorage.getItem("user");
-		if (token && saved) {
-			try {
-				setUser(JSON.parse(saved));
-			} catch {
+		if (!token) {
+			setLoading(false);
+			return;
+		}
+		api
+			.get("/auth/me")
+			.then(({ data }) => {
+				const payload = persistUser(data);
+				setUser(payload);
+			})
+			.catch(() => {
 				localStorage.removeItem("token");
 				localStorage.removeItem("user");
-			}
-		}
-		setLoading(false);
+				setUser(null);
+			})
+			.finally(() => setLoading(false));
 	}, []);
 
-	const login = async (login, password) => {
-		const { data } = await api.post("/auth/login", { login, password });
+	const login = async (email, password) => {
+		const { data } = await api.post("/auth/login", { email, password });
 		localStorage.setItem("token", data.token);
-		localStorage.setItem(
-			"user",
-			JSON.stringify({
-				_id: data._id,
-				email: data.email,
-				name: data.name,
-				login: data.login,
-				role: data.role,
-			}),
-		);
-		setUser({
-			_id: data._id,
-			email: data.email,
-			name: data.name,
-			login: data.login,
-			role: data.role,
-		});
+		const payload = persistUser(data);
+		setUser(payload);
 		return data;
+	};
+
+	const register = async (email, password, name) => {
+		const { data } = await api.post("/auth/register", { email, password, name });
+		localStorage.setItem("token", data.token);
+		const payload = persistUser(data);
+		setUser(payload);
+		return data;
+	};
+
+	const updateUser = (userData) => {
+		const payload = persistUser(userData);
+		setUser(payload);
 	};
 
 	const logout = () => {
@@ -51,7 +66,7 @@ export function AuthProvider({ children }) {
 	};
 
 	return (
-		<AuthContext.Provider value={{ user, loading, login, logout }}>
+		<AuthContext.Provider value={{ user, loading, login, register, updateUser, logout }}>
 			{children}
 		</AuthContext.Provider>
 	);

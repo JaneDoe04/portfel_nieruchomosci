@@ -56,11 +56,11 @@ export default function ExternalLinksModal({ apartment, onClose, onSave }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col"
+        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col mx-4 sm:mx-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-xl font-semibold text-slate-800">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-800">
             Linki do ogłoszeń
           </h2>
           <button
@@ -73,7 +73,7 @@ export default function ExternalLinksModal({ apartment, onClose, onSave }) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-6 py-4 overflow-y-auto space-y-4">
+          <div className="px-4 sm:px-6 py-4 overflow-y-auto space-y-4">
             {error && (
               <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
                 {error}
@@ -129,18 +129,18 @@ export default function ExternalLinksModal({ apartment, onClose, onSave }) {
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-slate-200 flex items-center gap-3">
+          <div className="px-4 sm:px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50"
+              className="flex-1 px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 text-sm sm:text-base"
             >
               Anuluj
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             >
               {saving ? 'Zapisywanie...' : 'Zapisz'}
             </button>

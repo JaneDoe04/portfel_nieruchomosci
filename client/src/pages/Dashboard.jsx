@@ -58,8 +58,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Panel główny</h1>
+    <div className="p-4 sm:p-6 lg:p-8 pl-16 sm:pl-6 lg:pl-8">
+      <h1 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Panel główny</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
@@ -109,21 +109,21 @@ export default function Dashboard() {
       </div>
 
       {expiringSoon.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 sm:p-5 mb-4">
           <div className="flex items-center gap-2 text-amber-800 font-medium mb-3">
-            <AlertCircle className="w-5 h-5" />
-            Umowy kończące się w ciągu 30 dni
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="text-sm sm:text-base">Umowy kończące się w ciągu 30 dni</span>
           </div>
           <ul className="space-y-2">
             {expiringSoon.map((apt) => (
               <li
                 key={apt._id}
-                className="flex items-center justify-between text-sm"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 text-sm"
               >
-                <span className="text-slate-700">
+                <span className="text-slate-700 truncate">
                   {apt.title} – {apt.address}
                 </span>
-                <span className="text-amber-700 font-medium">
+                <span className="text-amber-700 font-medium shrink-0">
                   {new Date(apt.contractEndDate).toLocaleDateString("pl-PL")}
                 </span>
               </li>
@@ -133,21 +133,21 @@ export default function Dashboard() {
       )}
 
       {expired.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5 mb-8">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-5 mb-6 sm:mb-8">
           <div className="flex items-center gap-2 text-red-800 font-medium mb-3">
-            <AlertCircle className="w-5 h-5" />
-            Umowy po terminie – wymagają Twojej decyzji
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="text-sm sm:text-base">Umowy po terminie – wymagają Twojej decyzji</span>
           </div>
           <ul className="space-y-2">
             {expired.map((apt) => (
               <li
                 key={apt._id}
-                className="flex items-center justify-between text-sm"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2 text-sm"
               >
-                <span className="text-slate-700">
+                <span className="text-slate-700 truncate">
                   {apt.title} – {apt.address}
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 shrink-0">
                   <span className="rounded-full bg-red-100 text-red-700 text-xs px-2 py-0.5 font-semibold">
                     Umowa wygasła
                   </span>
@@ -162,43 +162,43 @@ export default function Dashboard() {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <h2 className="px-6 py-4 border-b border-slate-200 text-lg font-semibold text-slate-800">
+        <h2 className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 text-base sm:text-lg font-semibold text-slate-800">
           Ostatnie mieszkania
         </h2>
         {apartments.length === 0 ? (
-          <p className="p-6 text-slate-500">Brak mieszkań w bazie.</p>
+          <p className="p-4 sm:p-6 text-slate-500 text-sm sm:text-base">Brak mieszkań w bazie.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {apartments.map((apt) => (
               <li
                 key={apt._id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/80 cursor-pointer"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-4 hover:bg-slate-50/80 cursor-pointer"
                 onClick={() => setSelected(apt)}
               >
-                <div className="flex items-center gap-4 min-w-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                   {getMainPhotoUrl(apt) && (
                     <img
                       src={getMainPhotoUrl(apt)}
                       alt={apt.title}
-                      className="w-20 h-16 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                      className="w-16 h-12 sm:w-20 sm:h-16 rounded-lg object-cover flex-shrink-0 border border-slate-200"
                     />
                   )}
-                  <div className="min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{apt.title}</p>
-                    <p className="text-sm text-slate-500 truncate">{apt.address}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-800 truncate text-sm sm:text-base">{apt.title}</p>
+                    <p className="text-xs sm:text-sm text-slate-500 truncate">{apt.address}</p>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-row sm:flex-col sm:items-end gap-2 sm:gap-1 shrink-0">
                   <StatusBadge status={apt.status} />
-                  <span className="text-xs text-slate-500 flex items-center gap-1">
+                  <span className="text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center gap-1">
                     {apt.contractEndDate ? (
                       <>
-                        <span>
+                        <span className="whitespace-nowrap">
                           Koniec umowy:{" "}
                           {new Date(apt.contractEndDate).toLocaleDateString("pl-PL")}
                         </span>
                         {new Date(apt.contractEndDate) < now && (
-                          <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-semibold">
+                          <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-semibold inline-block">
                             WYGASŁA
                           </span>
                         )}

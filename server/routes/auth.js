@@ -9,31 +9,76 @@ const router = express.Router();
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-// POST /api/auth/login – tylko login + hasło (bez rejestracji w aplikacji)
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// POST /api/auth/register – rejestracja (e-mail, hasło min 8 znaków, imię i nazwisko)
+router.post('/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Podaj adres e-mail i hasło.' });
+    }
+    if (!emailRegex.test(String(email).trim().toLowerCase())) {
+      return res.status(400).json({ message: 'Nieprawidłowy format adresu e-mail.' });
+    }
+    if (String(password).length < 8) {
+      return res.status(400).json({ message: 'Hasło musi mieć co najmniej 8 znaków.' });
+    }
+    const nameVal = name != null ? String(name).trim() : '';
+    if (!nameVal) {
+      return res.status(400).json({ message: 'Podaj imię i nazwisko.' });
+    }
+    const emailNorm = String(email).trim().toLowerCase();
+
+    const existingEmail = await User.findOne({ email: emailNorm });
+    if (existingEmail) {
+      return res.status(409).json({ message: 'Użytkownik z tym adresem e-mail już istnieje.' });
+    }
+
+    const user = await User.create({
+      email: emailNorm,
+      login: emailNorm,
+      password,
+      name: nameVal,
+      role: 'manager',
+    });
+    const token = generateToken(user._id);
+    res.status(201).json({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      token,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'Użytkownik z tym adresem e-mail już istnieje.' });
+    }
+    res.status(500).json({ message: err.message || 'Błąd rejestracji.' });
+  }
+});
+
+// POST /api/auth/login – logowanie e-mailem i hasłem
 router.post('/login', async (req, res) => {
   try {
-    const { login, password } = req.body;
-    if (!login || !password) {
-      return res.status(400).json({ message: 'Podaj login i hasło.' });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Podaj adres e-mail i hasło.' });
     }
-    console.log('[auth] Login attempt', { login });
-    const user = await User.findOne({ login }).select('+password');
+    const emailNorm = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: emailNorm }).select('+password');
     if (!user) {
-      console.log('[auth] User not found for login', login);
-      return res.status(401).json({ message: 'Nieprawidłowy login lub hasło.' });
+      return res.status(401).json({ message: 'Nieprawidłowy e-mail lub hasło.' });
     }
     const passwordOk = await user.comparePassword(password);
     if (!passwordOk) {
-      console.log('[auth] Password mismatch for user', user._id.toString());
-      return res.status(401).json({ message: 'Nieprawidłowy login lub hasło.' });
+      return res.status(401).json({ message: 'Nieprawidłowy e-mail lub hasło.' });
     }
-    console.log('[auth] Login OK', { userId: user._id.toString() });
     const token = generateToken(user._id);
     res.json({
       _id: user._id,
       email: user.email,
       name: user.name,
-      login: user.login,
       role: user.role,
       token,
     });
@@ -47,15 +92,45 @@ router.get('/me', protect, (req, res) => {
   res.json(req.user);
 });
 
-// PATCH /api/auth/me (protected) – aktualizacja name, login
+// PATCH /api/auth/me (protected) – aktualizacja name, email oraz zmiana hasła
 router.patch('/me', protect, async (req, res) => {
   try {
-    const { name, login } = req.body;
-    const upd = {};
-    if (name !== undefined) upd.name = name;
-    if (login !== undefined) upd.login = login;
-    const user = await User.findByIdAndUpdate(req.user._id, upd, { new: true }).select('-password');
-    res.json(user);
+    const { name, email, currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) return res.status(404).json({ message: 'Użytkownik nie znaleziony.' });
+
+    if (name !== undefined) {
+      const nameVal = String(name).trim();
+      if (!nameVal) return res.status(400).json({ message: 'Imię i nazwisko nie może być puste.' });
+      user.name = nameVal;
+    }
+    if (email !== undefined) {
+      const emailNorm = String(email).trim().toLowerCase();
+      if (!emailRegex.test(emailNorm)) {
+        return res.status(400).json({ message: 'Nieprawidłowy format adresu e-mail.' });
+      }
+      const existing = await User.findOne({ email: emailNorm, _id: { $ne: req.user._id } });
+      if (existing) {
+        return res.status(409).json({ message: 'Inny użytkownik ma już ten adres e-mail.' });
+      }
+      user.email = emailNorm;
+      user.login = emailNorm;
+    }
+
+    if (newPassword != null && String(newPassword).length > 0) {
+      if (String(newPassword).length < 8) {
+        return res.status(400).json({ message: 'Nowe hasło musi mieć co najmniej 8 znaków.' });
+      }
+      const match = await user.comparePassword(currentPassword);
+      if (!match) {
+        return res.status(401).json({ message: 'Aktualne hasło jest nieprawidłowe.' });
+      }
+      user.password = newPassword;
+    }
+
+    await user.save();
+    const updated = await User.findById(user._id).select('-password');
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message || 'Błąd aktualizacji.' });
   }
